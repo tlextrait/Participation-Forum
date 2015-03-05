@@ -5278,9 +5278,8 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
             $canstart = enrol_selfenrol_available($course->id);
         }
     }
-	
+
     if ($canstart) {
-		echo "<center>";
         echo '<div class="singlebutton forumaddnew">';
         echo "<form id=\"newdiscussionform\" method=\"get\" action=\"$CFG->wwwroot/mod/partforum/post.php\">";
         echo '<div>';
@@ -5304,7 +5303,6 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
         echo '</div>';
         echo '</form>';
         echo "</div>\n";
-		echo "</center>";
 
     } else if (isguestuser() or !isloggedin() or $forum->type == 'news') {
         // no button and no info
@@ -5377,7 +5375,6 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
     }
 
     if ($displayformat == 'header') {
-		echo "<center>";
         echo '<table cellspacing="0" class="forumheaderlist">';
         echo '<thead>';
         echo '<tr>';
@@ -5470,7 +5467,6 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
     if ($displayformat == "header") {
         echo '</tbody>';
         echo '</table>';
-		echo "</center>";
     }
 
     if ($olddiscussionlink) {
