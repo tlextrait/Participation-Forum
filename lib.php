@@ -1533,13 +1533,19 @@ function partforum_upgrade_grades() {
  */
 function partforum_grade_item_update($forum, $grades=NULL) {
     global $CFG;
+	
     if (!function_exists('grade_update')) { //workaround for buggy PHP versions
         require_once($CFG->libdir.'/gradelib.php');
     }
     
-    if($forum->cmidnumber != ''){
-        $params = array('itemname'=>$forum->name, 'idnumber'=>$forum->cmidnumber);
-	}else{
+    //if($forum->cmidnumber != ''){
+    //    $params = array('itemname'=>$forum->name, 'idnumber'=>$forum->cmidnumber);
+	//}else{
+	//    $params = array('itemname'=>$forum->name);
+	//}
+	
+    $params = array('itemname'=>$forum->name, 'idnumber'=>$forum->cmidnumber);
+	if($forum->cmidnumber == ''){
 	    $params = array('itemname'=>$forum->name);
 	}
     
@@ -5278,8 +5284,9 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
             $canstart = enrol_selfenrol_available($course->id);
         }
     }
-
+	
     if ($canstart) {
+		echo "<center>";
         echo '<div class="singlebutton forumaddnew">';
         echo "<form id=\"newdiscussionform\" method=\"get\" action=\"$CFG->wwwroot/mod/partforum/post.php\">";
         echo '<div>';
@@ -5303,6 +5310,7 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
         echo '</div>';
         echo '</form>';
         echo "</div>\n";
+		echo "</center>";
 
     } else if (isguestuser() or !isloggedin() or $forum->type == 'news') {
         // no button and no info
@@ -5375,6 +5383,7 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
     }
 
     if ($displayformat == 'header') {
+		echo "<center>";
         echo '<table cellspacing="0" class="forumheaderlist">';
         echo '<thead>';
         echo '<tr>';
@@ -5467,6 +5476,7 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
     if ($displayformat == "header") {
         echo '</tbody>';
         echo '</table>';
+		echo "</center>";
     }
 
     if ($olddiscussionlink) {
