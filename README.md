@@ -15,3 +15,4 @@
 - Rename the main folder to partforum
 - Copy to the Moodle mod/ folder
 - Click the 'Notifications' link on the frontpage administration block or php admin/cli/upgrade.php if you have access to a command line interpreter.
+xxx
