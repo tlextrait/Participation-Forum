@@ -172,7 +172,7 @@ $string['forumintro_default_partforum'] = '
 	<i>Each student should put up a minimum of 4 posts. The more Q &amp; A you post, the higher your participation rating, but be SURE to keep the quality up with thoughtful posts! Note: use Reply Type "Social Comment" to post non-substantive social comments, which do not increase your participation rating (but are often appreciated). Include pictures if you feel they illustrate the concept, and include links or attach files to support your position.</i>
 	<br/>
 	<br/>
-	<p align="center"><span style="font-size: x-small;"><em>The Participation Forum was designed by <a href="http://brant.knutzen.se" target="_blank">Brant Knutzen</a> and the plugin developed by <a href="http://tlextrait.com" target="_blank">Thomas Lextrait</a>, and is released under the  the <a href="http://creativecommons.org/licenses/by-sa/3.0/deed.en_US" target="_blank">Creative Commons BY-SA license</a></em>.</span></p>
+	<p align="center"><span style="font-size: x-small;"><em>The Participation Forum was designed by <a href="http://brant.knutzen.se" target="_blank">Brant Knutzen</a> and the plugin developed by <a href="http://tlextrait.com" target="_blank">Thomas Lextrait</a>, and is released under the <a href="http://creativecommons.org/licenses/by-sa/3.0/deed.en_US" target="_blank">Creative Commons BY-SA license</a></em>.</span></p>
 ';
 $string['forum:managesubscriptions'] = 'Manage subscriptions';
 $string['forum:movediscussions'] = 'Move discussions';
@@ -244,22 +244,7 @@ $string['modeflatoldestfirst'] = 'Display replies flat, with oldest first';
 $string['modenested'] = 'Display replies in nested form';
 $string['modethreaded'] = 'Display replies in threaded form';
 $string['modulename'] = 'Participation Forum';
-// update on 20150218 by Murphy
-// $string['modulename_help'] = 'The forum module enables participants to have asynchronous discussions.';
-$string['modulename_help'] = 'The Participation Forum module is a customized forum designed to engage students in a collaborative online discussion as a formative learning activity.  It creates a required activity worth up to 100 points, which the students can earn by participating in the discussion.
-
-It has three primary features:
-<p> 1. The "Add a new group post" button creates "semi-private" areas for discussions by small groups of students (size 3 to 8 is recommended).</p>
-<p> 2. It appends detailed task design instructions  (below the forum topic questions) which describe the types of posts expected:</p>
-   <ul>
-   <li> Group post</li>
-   <li> First post by each student</li>
-   <li>  Questions</li>
-   <li>  Answers</li>
-   <li> Reflective post</li>
-   </ul>
-<p> 3. It automatically generates a rating of participation based on the level of activity by each student (up to 100 points available) and stores it in the course Gradebook.</p>';
-
+$string['modulename_help'] = 'The forum module enables participants to have asynchronous discussions.';
 $string['modulename_link'] = 'forum';
 $string['modulenameplural'] = 'Participation Forums';
 $string['more'] = 'more';
@@ -315,6 +300,32 @@ $string['page-mod-forum-discuss'] = 'Forum module discussion thread page';
 $string['parent'] = 'Show parent';
 $string['parentofthispost'] = 'Parent of this post';
 $string['partforum'] = 'Participation forum';
+
+$string['partforum:addnews'] = 'Add news';
+$string['partforum:createattachment'] = 'Create attachment';
+$string['partforum:deleteanypost'] = 'Delete any post';
+$string['partforum:deleteownpost'] = 'Delete own post';
+$string['partforum:editanypost'] = 'Edit any post';
+$string['partforum:exportdiscussion'] = 'Export discussion';
+$string['partforum:exportownpost'] = 'Export own post';
+$string['partforum:exportpost'] = 'Export post';
+$string['partforum:initialsubscriptions'] = 'Initial subscriptions';
+$string['partforum:managesubscriptions'] = 'Manage subscriptions';
+$string['partforum:movediscussions'] = 'Move discussions';
+$string['partforum:postwithoutthrottling'] = 'Post without throttling';
+$string['partforum:rate'] = 'Rate posts';
+$string['partforum:replynews'] = 'Reply to news';
+$string['partforum:replypost'] = 'Reply to posts';
+$string['partforum:splitdiscussions'] = 'Split discussions';
+$string['partforum:startdiscussion'] = 'Start discussions';
+$string['partforum:viewallratings'] = 'View all ratings';
+$string['partforum:viewanyrating'] = 'View any rating';
+$string['partforum:viewdiscussion'] = 'View discussions';
+$string['partforum:viewhiddentimedposts'] = 'View hidden timed posts';
+$string['partforum:viewqandawithoutposting'] = 'Always see Q and A posts';
+$string['partforum:viewrating'] = 'View the total rating you received';
+$string['partforum:viewsubscribers'] = 'View subscribers';
+
 $string['pluginadministration'] = 'Participation Forum administration';
 $string['pluginname'] = 'Participation Forum';
 $string['postadded'] = '<p>Your post was successfully added.</p> <p>You have {$a} to edit it if you want to make any changes.</p>';
