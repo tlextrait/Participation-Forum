@@ -1,6 +1,4 @@
-# moodle-mod_partforum
-Participation Forum plugin for Moodle
-Moodle Participation Forum module
+# Moodle Participation Forum module
 
     Moodle tracker component: 
     Documentation: 
