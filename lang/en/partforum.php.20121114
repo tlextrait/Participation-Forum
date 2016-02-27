@@ -160,19 +160,27 @@ $string['forum:exportpost'] = 'Export post';
 $string['forum:initialsubscriptions'] = 'Initial subscription';
 $string['forumintro'] = 'Forum introduction';
 $string['forumintro_default_partforum'] = '
-	<p><b>This discussion activity is automatically rated based on participation, using the <a href="http://participationforum.org" target="_blank">Participation Forum methodology</a></b></p>
-	<p><b>Contributions to this discussion must be posted by <em><span style="color: #990000;">{$a}</span></em> to increase your rating.</b></p>
+	<br/>
+	<b>This discussion activity is automatically rated based on participation, using the <a href="http://participationforum.org" target="_blank">Participation Forum methodology</a></b>
 	<ol>
-	<li>A member from each group should click the "Add a new group post" button which creates a post restating the discussion topic questions, and enter the Group name in the Subject line, and some text in the Message area (such as group member names, etc). <i>(this post gets no rating)</i></li>
-	<li>Each member of the group should Reply to their Group Post with their First Post: notes, or a summary of their initial thoughts about the discussion topic questions. <i>(this post will automatically receive a rating of 6 out of 10 points possible)</i></li>
-	<li>Read the first posts of your group members, and post a Question to them by Replying.<i> (your rating will increase to an 8)</i></li>
-	<li>Read the questions that have been posted to your group. Do some research, and construct your Answer to a question by Replying. <i>(your rating will increase to 8.67)</i></li>
-	<li>A day or two before the Forum due date, Reply to create a Reflective post. Did exposure to others\' thoughts change your viewpoint? <i>(your rating will increase to 9)</i></li>
+	<li>A member from each group should click the "Add a new group post" button which creates a post restating the discussion topic questions, and enter the Group name in the Subject line.
+	(this post gets no rating)</li>
+	<li>Each member of the group should Reply to their Group Post with their First Post: notes, or a summary of their initial thoughts about the discussion topic questions
+	(this post will automatically have the Subject: "First Post", and receive a rating of 6)</li>
+	<li>Read the first posts of your group members, and post a Question to them.
+	(This post will automatically have the Subject: "Q & A" , and receive a rating of 10)</li>
+	<li>Read the questions that have been posted to your group. Do some research, and construct your answer to the question.
+	(This post will automatically have the Subject: "Q & A" , and receive a rating of 10)</li>
+	<li>A day or two before the Forum Deadline date, post a Reflective post about your thoughts and
+	others. Did exposure to others\' thoughts change your viewpoint?
+	(This post will automatically have the Subject: "Q & A" , and receive a rating of 10)</li>
 	</ol>
-	<i>Each student should put up a minimum of 4 posts. The more Q &amp; A you post, the higher your participation rating, but be SURE to keep the quality up with thoughtful posts! Note: use Reply Type "Social Comment" to post non-substantive social comments, which do not increase your participation rating (but are often appreciated). Include pictures if you feel they illustrate the concept, and include links or attach files to support your position.</i>
+	Each student should put up a minimum of 4 posts. The rating grades will be automatically averaged into a single Discussion Participation grade for the forum. Four posts will average to a grade of 9, out of 10 points possible.
+	<br/>
+	The more you post, the better your grade, but be SURE to keep the quality up with thoughtful posts! Include pictures if you feel they illustrate the concept.
 	<br/>
 	<br/>
-	<p align="center"><span style="font-size: x-small;"><em>The Participation Forum was designed by <a href="http://brant.knutzen.se" target="_blank">Brant Knutzen</a> and the plugin developed by <a href="http://tlextrait.com" target="_blank">Thomas Lextrait</a>, and is released under the  the <a href="http://creativecommons.org/licenses/by-sa/3.0/deed.en_US" target="_blank">Creative Commons BY-SA license</a></em>.</span></p>
+	<em>The Participation Forum was designed by <a href="http://brant.knutzen.se" target="_blank">Brant Knutzen</a> and the plugin developed by <a href="http://tlextrait.com" target="_blank">Thomas Lextrait</a>, and is released under the  the <a href="http://creativecommons.org/licenses/by-sa/3.0/deed.en_US" target="_blank">Creative Commons BY-SA license</a></em>.
 ';
 $string['forum:managesubscriptions'] = 'Manage subscriptions';
 $string['forum:movediscussions'] = 'Move discussions';
@@ -244,22 +252,7 @@ $string['modeflatoldestfirst'] = 'Display replies flat, with oldest first';
 $string['modenested'] = 'Display replies in nested form';
 $string['modethreaded'] = 'Display replies in threaded form';
 $string['modulename'] = 'Participation Forum';
-// update on 20150218 by Murphy
-// $string['modulename_help'] = 'The forum module enables participants to have asynchronous discussions.';
-$string['modulename_help'] = 'The Participation Forum module is a customized forum designed to engage students in a collaborative online discussion as a formative learning activity.  It creates a required activity worth up to 100 points, which the students can earn by participating in the discussion.
-
-It has three primary features:
-<p> 1. The "Add a new group post" button creates "semi-private" areas for discussions by small groups of students (size 3 to 8 is recommended).</p>
-<p> 2. It appends detailed task design instructions  (below the forum topic questions) which describe the types of posts expected:</p>
-   <ul>
-   <li> Group post</li>
-   <li> First post by each student</li>
-   <li>  Questions</li>
-   <li>  Answers</li>
-   <li> Reflective post</li>
-   </ul>
-<p> 3. It automatically generates a rating of participation based on the level of activity by each student (up to 100 points available) and stores it in the course Gradebook.</p>';
-
+$string['modulename_help'] = 'The forum module enables participants to have asynchronous discussions.';
 $string['modulename_link'] = 'forum';
 $string['modulenameplural'] = 'Participation Forums';
 $string['more'] = 'more';

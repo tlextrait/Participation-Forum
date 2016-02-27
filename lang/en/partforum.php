@@ -145,54 +145,46 @@ $string['everyoneissubscribed'] = 'Everyone is subscribed to this forum';
 $string['existingsubscribers'] = 'Existing subscribers';
 $string['exportdiscussion'] = 'Export whole discussion';
 $string['forcessubscribe'] = 'This forum forces everyone to be subscribed';
-$string['forum'] = 'Forum';
-$string['forum:addnews'] = 'Add news';
+//$string['forum'] = 'Forum';
+//$string['forum:addnews'] = 'Add news';
 $string['forumauthorhidden'] = 'Author (hidden)';
 $string['forumblockingalmosttoomanyposts'] = 'You are approaching the posting threshold. You have posted {$a->numposts} times in the last {$a->blockperiod} and the limit is {$a->blockafter} posts.';
 $string['forumbodyhidden'] = 'This post cannot be viewed by you, probably because you have not posted in the discussion or the maximum editing time hasn\'t passed yet.';
-$string['forum:createattachment'] = 'Create attachments';
-$string['forum:deleteanypost'] = 'Delete any posts (anytime)';
-$string['forum:deleteownpost'] = 'Delete own posts (within deadline)';
-$string['forum:editanypost'] = 'Edit any post';
-$string['forum:exportdiscussion'] = 'Export whole discussion';
-$string['forum:exportownpost'] = 'Export own post';
-$string['forum:exportpost'] = 'Export post';
-$string['forum:initialsubscriptions'] = 'Initial subscription';
-$string['forumintro'] = 'Forum introduction';
+//$string['forum:createattachment'] = 'Create attachments';
+//$string['forum:deleteanypost'] = 'Delete any posts (anytime)';
+//$string['forum:deleteownpost'] = 'Delete own posts (within deadline)';
+//$string['forum:editanypost'] = 'Edit any post';
+//$string['forum:exportdiscussion'] = 'Export whole discussion';
+//$string['forum:exportownpost'] = 'Export own post';
+//$string['forum:exportpost'] = 'Export post';
+//$string['forum:initialsubscriptions'] = 'Initial subscription';
+//$string['forumintro'] = 'Forum introduction';
 $string['forumintro_default_partforum'] = '
-	<br/>
-	<b>This discussion activity is automatically rated based on participation, using the <a href="http://participationforum.org" target="_blank">Participation Forum methodology</a></b>
+	<p><b>This discussion activity is automatically rated based on participation, using the <a href="http://participationforum.org" target="_blank">Participation Forum methodology</a></b></p>
+	<p><b>Contributions to this discussion must be posted by <em><span style="color: #990000;">{$a}</span></em> to increase your rating.</b></p>
 	<ol>
-	<li>A member from each group should click the "Add a new group post" button which creates a post restating the discussion topic questions, and enter the Group name in the Subject line.
-	(this post gets no rating)</li>
-	<li>Each member of the group should Reply to their Group Post with their First Post: notes, or a summary of their initial thoughts about the discussion topic questions
-	(this post will automatically have the Subject: "First Post", and receive a rating of 6)</li>
-	<li>Read the first posts of your group members, and post a Question to them.
-	(This post will automatically have the Subject: "Q & A" , and receive a rating of 10)</li>
-	<li>Read the questions that have been posted to your group. Do some research, and construct your answer to the question.
-	(This post will automatically have the Subject: "Q & A" , and receive a rating of 10)</li>
-	<li>A day or two before the Forum Deadline date, post a Reflective post about your thoughts and
-	others. Did exposure to others\' thoughts change your viewpoint?
-	(This post will automatically have the Subject: "Q & A" , and receive a rating of 10)</li>
+	<li>A member from each group should click the "Add a new group post" button which creates a post restating the discussion topic questions, and enter the Group name in the Subject line, and some text in the Message area (such as group member names, etc). <i>(this post gets no rating)</i></li>
+	<li>Each member of the group should Reply to their Group Post with their First Post: notes, or a summary of their initial thoughts about the discussion topic questions. <i>(this post will automatically receive a rating of 6 out of 10 points possible)</i></li>
+	<li>Read the first posts of your group members, and post a Question to them by Replying.<i> (your rating will increase to an 8)</i></li>
+	<li>Read the questions that have been posted to your group. Do some research, and construct your Answer to a question by Replying. <i>(your rating will increase to 8.67)</i></li>
+	<li>A day or two before the Forum due date, Reply to create a Reflective post. Did exposure to others\' thoughts change your viewpoint? <i>(your rating will increase to 9)</i></li>
 	</ol>
-	Each student should put up a minimum of 4 posts. The rating grades will be automatically averaged into a single Discussion Participation grade for the forum. Four posts will average to a grade of 9, out of 10 points possible.
-	<br/>
-	The more you post, the better your grade, but be SURE to keep the quality up with thoughtful posts! Include pictures if you feel they illustrate the concept.
+	<i>Each student should put up a minimum of 4 posts. The more Q &amp; A you post, the higher your participation rating, but be SURE to keep the quality up with thoughtful posts! Note: use Reply Type "Social Comment" to post non-substantive social comments, which do not increase your participation rating (but are often appreciated). Include pictures if you feel they illustrate the concept, and include links or attach files to support your position.</i>
 	<br/>
 	<br/>
-	<em>The Participation Forum was designed by <a href="http://brant.knutzen.se" target="_blank">Brant Knutzen</a> and the plugin developed by <a href="http://tlextrait.com" target="_blank">Thomas Lextrait</a>, and is released under the  the <a href="http://creativecommons.org/licenses/by-sa/3.0/deed.en_US" target="_blank">Creative Commons BY-SA license</a></em>.
+	<p align="center"><span style="font-size: x-small;"><em>The Participation Forum was designed by <a href="http://brant.knutzen.se" target="_blank">Brant Knutzen</a> and the plugin developed by <a href="http://tlextrait.com" target="_blank">Thomas Lextrait</a>, and is released under the <a href="http://creativecommons.org/licenses/by-sa/3.0/deed.en_US" target="_blank">Creative Commons BY-SA license</a></em>.</span></p>
 ';
-$string['forum:managesubscriptions'] = 'Manage subscriptions';
-$string['forum:movediscussions'] = 'Move discussions';
-$string['forum:postwithoutthrottling'] = 'Exempt from post threshold';
+//$string['forum:managesubscriptions'] = 'Manage subscriptions';
+//$string['forum:movediscussions'] = 'Move discussions';
+//$string['forum:postwithoutthrottling'] = 'Exempt from post threshold';
 $string['forumname'] = 'Forum name';
 $string['forumposts'] = 'Forum posts';
-$string['forum:rate'] = 'Rate posts';
-$string['forum:replynews'] = 'Reply to news';
-$string['forum:replypost'] = 'Reply to posts';
+//$string['forum:rate'] = 'Rate posts';
+//$string['forum:replynews'] = 'Reply to news';
+//$string['forum:replypost'] = 'Reply to posts';
 $string['forums'] = 'Forums';
-$string['forum:splitdiscussions'] = 'Split discussions';
-$string['forum:startdiscussion'] = 'Start new discussions';
+//$string['forum:splitdiscussions'] = 'Split discussions';
+//$string['forum:startdiscussion'] = 'Start new discussions';
 $string['forumsubjecthidden'] = 'Subject (hidden)';
 $string['forum:throttlingapplies'] = 'Throttling applies';
 $string['forumtracked'] = 'Unread posts are being tracked';
@@ -206,13 +198,13 @@ $string['forumtype_help'] = 'There are 6 forum types:
 * Q and A forum - Students must first post their perspectives before viewing other students\' posts.
 * Standard forum displayed in a blog-like format - An open forum where anyone can start a new discussion at any time, and in which discussion topics are displayed on one page with "Discuss this topic" links.
 * Standard forum for general use - An open forum where anyone can start a new discussion at any time.';
-$string['forum:viewallratings'] = 'View all raw ratings given by individuals';
-$string['forum:viewanyrating'] = 'View total ratings that anyone received';
-$string['forum:viewdiscussion'] = 'View discussions';
-$string['forum:viewhiddentimedposts'] = 'View hidden timed posts';
-$string['forum:viewqandawithoutposting'] = 'Always see Q and A posts';
-$string['forum:viewrating'] = 'View the total rating you received';
-$string['forum:viewsubscribers'] = 'View subscribers';
+//$string['forum:viewallratings'] = 'View all raw ratings given by individuals';
+//$string['forum:viewanyrating'] = 'View total ratings that anyone received';
+//$string['forum:viewdiscussion'] = 'View discussions';
+//$string['forum:viewhiddentimedposts'] = 'View hidden timed posts';
+//$string['forum:viewqandawithoutposting'] = 'Always see Q and A posts';
+//$string['forum:viewrating'] = 'View the total rating you received';
+//$string['forum:viewsubscribers'] = 'View subscribers';
 $string['generalforum'] = 'Standard forum for general use';
 $string['generalforums'] = 'General forums';
 $string['grouppost'] = 'Group Post';
@@ -308,6 +300,32 @@ $string['page-mod-forum-discuss'] = 'Forum module discussion thread page';
 $string['parent'] = 'Show parent';
 $string['parentofthispost'] = 'Parent of this post';
 $string['partforum'] = 'Participation forum';
+
+$string['partforum:addnews'] = 'Add news';
+$string['partforum:createattachment'] = 'Create attachment';
+$string['partforum:deleteanypost'] = 'Delete any post';
+$string['partforum:deleteownpost'] = 'Delete own post';
+$string['partforum:editanypost'] = 'Edit any post';
+$string['partforum:exportdiscussion'] = 'Export discussion';
+$string['partforum:exportownpost'] = 'Export own post';
+$string['partforum:exportpost'] = 'Export post';
+$string['partforum:initialsubscriptions'] = 'Initial subscriptions';
+$string['partforum:managesubscriptions'] = 'Manage subscriptions';
+$string['partforum:movediscussions'] = 'Move discussions';
+$string['partforum:postwithoutthrottling'] = 'Post without throttling';
+$string['partforum:rate'] = 'Rate posts';
+$string['partforum:replynews'] = 'Reply to news';
+$string['partforum:replypost'] = 'Reply to posts';
+$string['partforum:splitdiscussions'] = 'Split discussions';
+$string['partforum:startdiscussion'] = 'Start discussions';
+$string['partforum:viewallratings'] = 'View all ratings';
+$string['partforum:viewanyrating'] = 'View any rating';
+$string['partforum:viewdiscussion'] = 'View discussions';
+$string['partforum:viewhiddentimedposts'] = 'View hidden timed posts';
+$string['partforum:viewqandawithoutposting'] = 'Always see Q and A posts';
+$string['partforum:viewrating'] = 'View the total rating you received';
+$string['partforum:viewsubscribers'] = 'View subscribers';
+
 $string['pluginadministration'] = 'Participation Forum administration';
 $string['pluginname'] = 'Participation Forum';
 $string['postadded'] = '<p>Your post was successfully added.</p> <p>You have {$a} to edit it if you want to make any changes.</p>';
