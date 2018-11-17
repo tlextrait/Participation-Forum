@@ -24,7 +24,7 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-    require_once('../../config.php');
+    require_once '../../config.php';
 
     $d      = required_param('d', PARAM_INT);                // Discussion ID
     $parent = optional_param('parent', 0, PARAM_INT);        // If set, then display this post and all children.

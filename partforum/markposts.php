@@ -23,8 +23,8 @@
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-require_once("../../config.php");
-require_once("lib.php");
+require_once "../../config.php";
+require_once "lib.php";
 
 $f          = required_param('f',PARAM_INT); // The forum to mark
 $mark       = required_param('mark',PARAM_ALPHA); // Read or unread?
