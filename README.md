@@ -24,7 +24,7 @@ This project is open-source and maintained by the community. Your contributions 
 
 ## Legacy Moodle Support
 
-### Moodle 2.4 to 2.7
+### Moodle 2.4 to 2.6
 Use [version 1.4](https://github.com/tlextrait/Participation-Forum/releases/tag/1.4).
 
 ### Moodle 2.0 to 2.3
