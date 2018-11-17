@@ -64,5 +64,5 @@ Note: The plugin may contain language files. They'll be found by your Moodle aut
 
 ## Todo
 
-* Add support for Moodle 3.5+
+* Add support for Moodle 3.1+
 * Update backup/restore functionality
