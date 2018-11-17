@@ -47,8 +47,8 @@ The “Add a new group post” button creates “semi-private” areas for discu
 
 ### Installing via uploaded ZIP file
 
-1. Login to your Moodle site as an admin and go to Administration > Site administration > Plugins > Install plugins.
-2. Upload the ZIP file, select the Activity module(mod) plugin type, tick the acknowledgement checkbox, then click the button 'Install plugin from the ZIP file'.
+1. Login to your Moodle site as an admin and go to *Administration > Site administration > Plugins > Install plugins*.
+2. Upload the ZIP file, select the `Activity module(mod)` plugin type, tick the acknowledgement checkbox, then click the button 'Install plugin from the ZIP file'.
 3. Check that you obtain a 'Validation passed!' message, then click the button 'Install plugin'.
 
 ### Installing manually at the server
