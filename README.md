@@ -17,9 +17,10 @@ This project is open-source and maintained by the community. Your contributions 
 [GNU General Public License v3](LICENSE)
 
 ## Requirements
-**Support for Moodle 3.1 and higher is coming soon.**
 
 * Moodle 2.4 - 3.0
+
+**Support for Moodle 3.1 and higher is coming soon.**
 
 ## Legacy Moodle Support
 
@@ -37,12 +38,17 @@ The “Add a new group post” button creates “semi-private” areas for discu
    * Reflective post
 3. It automatically generates a rating of participation based on the level of activity by each student (up to 10 points available) and stores it in the course Gradebook
 
+## Tutorials
+
+[YouTube Tutorial Videos](https://www.youtube.com/playlist?list=PLU9j5H0P1sx9YoXgfZiNamrLvL8HfuIfy) by Brant Knutzen.
+
 ## Installation
 
-### Installing via uploaded ZIP file
+### Installing via uploaded zip file
 
-1. Login to your Moodle site as an admin and go to Administration > Site administration > Plugins > Install plugins.
-2. Upload the ZIP file, select the Activity module(mod) plugin type, tick the acknowledgement checkbox, then click the button 'Install plugin from the ZIP file'.
+1. Login to your Moodle site as an admin and go to *Administration > Site administration > Plugins > Install plugins*.
+2. Compress the `partforum` folder into a zip file.
+2. Upload the zip file, select the `Activity module (mod)` plugin type, tick the acknowledgement checkbox, then click the button 'Install plugin from the ZIP file'.
 3. Check that you obtain a 'Validation passed!' message, then click the button 'Install plugin'.
 
 ### Installing manually at the server
@@ -56,6 +62,7 @@ The “Add a new group post” button creates “semi-private” areas for discu
     
 Note: The plugin may contain language files. They'll be found by your Moodle automatically. These language strings can be customized using the standard Settings > Site administration > Language editing interface. If you get a "Database error" when you try to edit your language files, there is a strong chance that the language files included within the downloaded ZIP file of this plugin have a coding problem. If you delete the plugin_name/lang/other_language_different_to_English/ folder with the new language strings and the database error disappears, this is indeed the case. Please notify the plugin maintainer, so that it can be fixed in future releases.
 
-## Tutorials
+## Todo
 
-[YouTube Tutorial Videos](https://www.youtube.com/playlist?list=PLU9j5H0P1sx9YoXgfZiNamrLvL8HfuIfy) by Brant Knutzen.
+* Add support for Moodle 3.1+
+* Update backup/restore functionality
