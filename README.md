@@ -24,6 +24,18 @@ This project is open-source and maintained by the community. Your contributions 
 
 *For Moodle 2.0 to 2.3 support, please download [version 1.3 here, which is no longer being supported or worked on](http://pf.bushgrapher.org/downloads/PartForum_1.3.0.zip)*.
 
+## Features
+
+1.The Participation Forum module is a customized forum designed to engage students in a collaborative online discussion as a formative learning activity. It creates a required activity worth up to 10 points, which the students can earn by participating in the discussion. It has three primary features:
+The “Add a new group post” button creates “semi-private” areas for discussions by small groups of students (size 3 to 8 is recommended)
+2.It appends detailed task design instructions (below the forum topic questions) which describe the types of posts expected:
+   a.Group post
+   b.First post by each student
+   c.Questions
+   d.Answers
+   e.Reflective post
+3.It automatically generates a rating of participation based on the level of activity by each student (up to 10 points available) and stores it in the course Gradebook
+
 ## Installation
 
 1. Go to your main Moodle directory.
