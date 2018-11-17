@@ -28,7 +28,7 @@ This project is open-source and maintained by the community. Your contributions 
 Use [version 1.4](https://github.com/tlextrait/Participation-Forum/releases/tag/1.4).
 
 ### Moodle 2.0 to 2.3
-For Moodle 2.0 to 2.3 support, please download [version 1.3 here, which is no longer being supported or worked on](http://pf.bushgrapher.org/downloads/PartForum_1.3.0.zip).
+Use [version 1.3](http://pf.bushgrapher.org/downloads/PartForum_1.3.0.zip).
 
 ## Features
 
