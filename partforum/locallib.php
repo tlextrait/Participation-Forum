@@ -19,8 +19,8 @@
  * Library of functions for forum outside of the core api
  */
 
-require_once $CFG->dirroot . '/mod/partforum/lib.php' ;
-require_once $CFG->libdir . '/portfolio/caller.php' ;
+require_once($CFG->dirroot . '/mod/partforum/lib.php');
+require_once($CFG->libdir . '/portfolio/caller.php');
 
 /**
  * @package   mod-forum
