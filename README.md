@@ -11,6 +11,10 @@ Testing and further development plans are underway at the University of Hong Kon
 
 This project is open-source and maintained by the community. Your contributions are welcome. To contribute, fork this repository.
 
+## License
+
+[GNU General Public License v3](LICENSE)
+
 ## Requirements
 
 * Moodle 2.4+
