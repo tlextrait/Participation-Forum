@@ -16,8 +16,11 @@ This project is open-source and maintained by the community. Your contributions 
 [GNU General Public License v3](LICENSE)
 
 ## Requirements
+**Support for Moodle 3.1 and higher is coming soon.**
 
-* Moodle 2.4+
+* Moodle 2.4 - 3.0
+
+## Legacy Moodle Support
 
 *For Moodle 2.0 to 2.3 support, please download [version 1.3 here, which is no longer being supported or worked on](http://pf.bushgrapher.org/downloads/PartForum_1.3.0.zip)*.
 
