@@ -18,9 +18,7 @@ This project is open-source and maintained by the community. Your contributions 
 
 ## Requirements
 
-* Moodle 2.7 - 3.0
-
-**Support for Moodle 3.1 and higher is coming soon.**
+* Moodle 2.7+
 
 ## Legacy Moodle Support
 
@@ -68,5 +66,5 @@ Note: The plugin may contain language files. They'll be found by your Moodle aut
 
 ## Todo
 
-* Add support for Moodle 3.1+
+* Fix events lib deprecation warning for Moodle 3.1+
 * Update backup/restore functionality
