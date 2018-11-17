@@ -27,7 +27,7 @@
 
     $id          = optional_param('id', 0, PARAM_INT);       // Course Module ID
     $f           = optional_param('f', 0, PARAM_INT);        // Forum ID
-    $mode        = optional_param('mode', 0, PARAM_INT);     // Display mode (for single forum)
+    $mode        = optional_param('mode', 0, PARAM_INT);     // Display mode (for single partforum)
     $showall     = optional_param('showall', '', PARAM_INT); // show all discussions on one page
     $changegroup = optional_param('group', -1, PARAM_INT);   // choose the current group
     $page        = optional_param('page', 0, PARAM_INT);     // which page to show
@@ -54,34 +54,34 @@
         if (! $course = $DB->get_record("course", array("id" => $cm->course))) {
             print_error('coursemisconf');
         }
-        if (! $forum = $DB->get_record("partforum", array("id" => $cm->instance))) {
-            print_error('invalidforumid', 'partforum');
+        if (! $partforum = $DB->get_record("partforum", array("id" => $cm->instance))) {
+            print_error('invalidpartforumid', 'partforum');
         }
-        if ($forum->type == 'single') {
+        if ($partforum->type == 'single') {
             $PAGE->set_pagetype('mod-partforum-discuss');
         }
         // move require_course_login here to use forced language for course
         // fix for MDL-6926
         require_course_login($course, true, $cm);
-        $strforums = get_string("modulenameplural", "partforum");
-        $strforum = get_string("modulename", "partforum");
+        $strpartforums = get_string("modulenameplural", "partforum");
+        $strpartforum = get_string("modulename", "partforum");
     } else if ($f) {
 
-        if (! $forum = $DB->get_record("partforum", array("id" => $f))) {
-            print_error('invalidforumid', 'partforum');
+        if (! $partforum = $DB->get_record("partforum", array("id" => $f))) {
+            print_error('invalidpartforumid', 'partforum');
         }
-        if (! $course = $DB->get_record("course", array("id" => $forum->course))) {
+        if (! $course = $DB->get_record("course", array("id" => $partforum->course))) {
             print_error('coursemisconf');
         }
 
-        if (!$cm = get_coursemodule_from_instance("partforum", $forum->id, $course->id)) {
+        if (!$cm = get_coursemodule_from_instance("partforum", $partforum->id, $course->id)) {
             print_error('missingparameter');
         }
         // move require_course_login here to use forced language for course
         // fix for MDL-6926
         require_course_login($course, true, $cm);
-        $strforums = get_string("modulenameplural", "partforum");
-        $strforum = get_string("modulename", "partforum");
+        $strpartforums = get_string("modulenameplural", "partforum");
+        $strpartforum = get_string("modulename", "partforum");
     } else {
         print_error('missingparameter');
     }
@@ -90,14 +90,14 @@
         $PAGE->set_button(partforum_search_form($course, $search));
     }
 
-    $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $context = context_module::instance($cm->id);
     $PAGE->set_context($context);
 
-    if (!empty($CFG->enablerssfeeds) && !empty($CFG->forum_enablerssfeeds) && $forum->rsstype && $forum->rssarticles) {
+    if (!empty($CFG->enablerssfeeds) && !empty($CFG->partforum_enablerssfeeds) && $partforum->rsstype && $partforum->rssarticles) {
         require_once("$CFG->libdir/rsslib.php");
 
         $rsstitle = format_string($course->shortname) . ': %fullname%';
-        rss_add_http_header($context, 'mod_partforum', $forum, $rsstitle);
+        rss_add_http_header($context, 'mod_partforum', $partforum, $rsstitle);
     }
 
     // Mark viewed if required
@@ -106,10 +106,13 @@
 
 /// Print header.
 
-    $PAGE->set_title(format_string($forum->name));
-    $PAGE->add_body_class('forumtype-'.$forum->type);
+    $PAGE->set_title(format_string($partforum->name));
+    $PAGE->add_body_class('partforumtype-'.$partforum->type);
     $PAGE->set_heading(format_string($course->fullname));
-
+    
+    // Mark viewed and trigger the course_module_viewed event added by hema.
+    partforum_view($partforum, $course, $cm, $context);
+    
     echo $OUTPUT->header();
 
 /// Some capability checks.
@@ -126,23 +129,25 @@
     $currentgroup = groups_get_activity_group($cm);
     $groupmode = groups_get_activity_groupmode($cm);
 
-/// Okay, we can show the discussions. Log the forum view.
-    if ($cm->id) {
-        add_to_log($course->id, "partforum", "view forum", "view.php?id=$cm->id", "$forum->id", $cm->id);
-    } else {
-        add_to_log($course->id, "partforum", "view forum", "view.php?f=$forum->id", "$forum->id");
-    }
+///// Okay, we can show the discussions. Log the partforum view.
+//    if ($cm->id) {
+//        add_to_log($course->id, "partforum", "view partforum", "view.php?id=$cm->id", "$partforum->id", $cm->id);
+//    } else {
+//        add_to_log($course->id, "partforum", "view partforum", "view.php?f=$partforum->id", "$partforum->id");
+//    }
 
+
+    
     $SESSION->fromdiscussion = $FULLME;   // Return here if we post or set subscription etc
 
 
 /// Print settings and things across the top
 
-    // If it's a simple single discussion forum, we need to print the display
+    // If it's a simple single discussion partforum, we need to print the display
     // mode control.
-    if ($forum->type == 'single') {
-        if (! $discussion = $DB->get_record("partforum_discussions", array("forum" => $forum->id))) {
-            if ($discussions = $DB->get_records("partforum_discussions", array("forum", $forum->id), "timemodified ASC")) {
+    if ($partforum->type == 'single') {
+        if (! $discussion = $DB->get_record("partforum_discussions", array("partforum" => $partforum->id))) {
+            if ($discussions = $DB->get_records("partforum_discussions", array("partforum", $partforum->id), "timemodified ASC")) {
                 $discussion = array_pop($discussions);
             }
         }
@@ -150,26 +155,26 @@
             if ($mode) {
                 set_user_preference("partforum_displaymode", $mode);
             }
-            $displaymode = get_user_preferences("partforum_displaymode", $CFG->forum_displaymode);
-            partforum_print_mode_form($forum->id, $displaymode, $forum->type);
+            $displaymode = get_user_preferences("partforum_displaymode", $CFG->partforum_displaymode);
+            partforum_print_mode_form($partforum->id, $displaymode, $partforum->type);
         }
     }
 
-    if (!empty($forum->blockafter) && !empty($forum->blockperiod)) {
-        $a->blockafter = $forum->blockafter;
-        $a->blockperiod = get_string('secondstotime'.$forum->blockperiod);
-        echo $OUTPUT->notification(get_string('thisforumisthrottled','partforum',$a));
+    if (!empty($partforum->blockafter) && !empty($partforum->blockperiod)) {
+        $a->blockafter = $partforum->blockafter;
+        $a->blockperiod = get_string('secondstotime'.$partforum->blockperiod);
+        echo $OUTPUT->notification(get_string('thispartforumisthrottled','partforum',$a));
     }
 
-    if ($forum->type == 'qanda' && !has_capability('moodle/course:manageactivities', $context)) {
+    if ($partforum->type == 'qanda' && !has_capability('moodle/course:manageactivities', $context)) {
         echo $OUTPUT->notification(get_string('qandanotify','partforum'));
     }
 
-    switch ($forum->type) {
+    switch ($partforum->type) {
         case 'single':
-            if (! $discussion = $DB->get_record("partforum_discussions", array("forum" => $forum->id))) {
-                if ($discussions = $DB->get_records("partforum_discussions", array("forum" => $forum->id), "timemodified ASC")) {
-                    echo $OUTPUT->notification("Warning! There is more than one discussion in this forum - using the most recent");
+            if (! $discussion = $DB->get_record("partforum_discussions", array("partforum" => $partforum->id))) {
+                if ($discussions = $DB->get_records("partforum_discussions", array("partforum" => $partforum->id), "timemodified ASC")) {
+                    echo $OUTPUT->notification("Warning! There is more than one discussion in this partforum - using the most recent");
                     $discussion = array_pop($discussions);
                 } else {
                     print_error('nodiscussions', 'partforum');
@@ -179,52 +184,52 @@
                 print_error('cannotfindfirstpost', 'partforum');
             }
             if ($mode) {
-                set_user_preference("forum_displaymode", $mode);
+                set_user_preference("partforum_displaymode", $mode);
             }
 
-            $canreply    = partforum_user_can_post($forum, $discussion, $USER, $cm, $course, $context);
+            $canreply    = partforum_user_can_post($partforum, $discussion, $USER, $cm, $course, $context);
             $canrate     = has_capability('mod/partforum:rate', $context);
-            $displaymode = get_user_preferences("partforum_displaymode", $CFG->forum_displaymode);
+            $displaymode = get_user_preferences("partforum_displaymode", $CFG->partforum_displaymode);
 
             echo '&nbsp;'; // this should fix the floating in FF
-            partforum_print_discussion($course, $cm, $forum, $discussion, $post, $displaymode, $canreply, $canrate);
+            partforum_print_discussion($course, $cm, $partforum, $discussion, $post, $displaymode, $canreply, $canrate);
             break;
 
         case 'eachuser':
-            if (!empty($forum->intro)) {
-                echo $OUTPUT->box(format_module_intro('partforum', $forum, $cm->id), 'generalbox', 'intro');
+            if (!empty($partforum->intro)) {
+                echo $OUTPUT->box(format_module_intro('partforum', $partforum, $cm->id), 'generalbox', 'intro');
             }
             echo '<p class="mdl-align">';
-            if (partforum_user_can_post_discussion($forum, null, -1, $cm)) {
+            if (partforum_user_can_post_discussion($partforum, null, -1, $cm)) {
                 print_string("allowsdiscussions", "partforum");
             } else {
                 echo '&nbsp;';
             }
             echo '</p>';
             if (!empty($showall)) {
-                partforum_print_latest_discussions($course, $forum, 0, 'header', '', -1, -1, -1, 0, $cm);
+                partforum_print_latest_discussions($course, $partforum, 0, 'header', '', -1, -1, -1, 0, $cm);
             } else {
-                partforum_print_latest_discussions($course, $forum, -1, 'header', '', -1, -1, $page, $CFG->forum_manydiscussions, $cm);
+                partforum_print_latest_discussions($course, $partforum, -1, 'header', '', -1, -1, $page, $CFG->partforum_manydiscussions, $cm);
             }
             break;
 
         case 'teacher':
             if (!empty($showall)) {
-                partforum_print_latest_discussions($course, $forum, 0, 'header', '', -1, -1, -1, 0, $cm);
+                partforum_print_latest_discussions($course, $partforum, 0, 'header', '', -1, -1, -1, 0, $cm);
             } else {
-                partforum_print_latest_discussions($course, $forum, -1, 'header', '', -1, -1, $page, $CFG->forum_manydiscussions, $cm);
+                partforum_print_latest_discussions($course, $partforum, -1, 'header', '', -1, -1, $page, $CFG->partforum_manydiscussions, $cm);
             }
             break;
 
         case 'blog':
-            if (!empty($forum->intro)) {
-                echo $OUTPUT->box(format_module_intro('partforum', $forum, $cm->id), 'generalbox', 'intro');
+            if (!empty($partforum->intro)) {
+                echo $OUTPUT->box(format_module_intro('partforum', $partforum, $cm->id), 'generalbox', 'intro');
             }
             echo '<br />';
             if (!empty($showall)) {
-                partforum_print_latest_discussions($course, $forum, 0, 'plain', '', -1, -1, -1, 0, $cm);
+                partforum_print_latest_discussions($course, $partforum, 0, 'plain', '', -1, -1, -1, 0, $cm);
             } else {
-                partforum_print_latest_discussions($course, $forum, -1, 'plain', '', -1, -1, $page, $CFG->forum_manydiscussions, $cm);
+                partforum_print_latest_discussions($course, $partforum, -1, 'plain', '', -1, -1, $page, $CFG->partforum_manydiscussions, $cm);
             }
             break;
             
@@ -232,18 +237,24 @@
 		* Participation Forum
 		*/
 		case 'participation':
-			$forum->intro .= get_string("forumintro_default_partforum", "partforum", userdate($forum->assesstimefinish, get_string('strftimedate')));
+             //----rating image popup-----------------------------------------------------
+             $PAGE->requires->js('/mod/partforum/js/partforum_custom.js');            
+            if($partforum->assesstimefinish==0)
+            $partforum->intro  .= get_string('partforum_baselineswithoutdates','partforum');
+            else
+            $partforum->intro  .= get_string('partforum_instructions_baselines','partforum',userdate($partforum->assesstimefinish, get_string('strftimedate', 'langconfig'))); 
+			$partforum->intro  .= $CFG->partforum_instructions;
 			
 
         default:
-            if (!empty($forum->intro)) {
-                echo $OUTPUT->box(format_module_intro('partforum', $forum, $cm->id), 'generalbox', 'intro');
+            if (!empty($partforum->intro)) {
+                echo $OUTPUT->box(format_module_intro('partforum', $partforum, $cm->id), 'generalbox', 'intro');
             }
             echo '<br />';
             if (!empty($showall)) {
-                partforum_print_latest_discussions($course, $forum, 0, 'header', '', -1, -1, -1, 0, $cm);
+                partforum_print_latest_discussions($course, $partforum, 0, 'header', '', -1, -1, -1, 0, $cm);
             } else {
-                partforum_print_latest_discussions($course, $forum, -1, 'header', '', -1, -1, $page, $CFG->forum_manydiscussions, $cm);
+                partforum_print_latest_discussions($course, $partforum, -1, 'header', '', -1, -1, $page, $CFG->partforum_manydiscussions, $cm);
             }
 
 

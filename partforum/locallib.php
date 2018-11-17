@@ -16,14 +16,14 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Library of functions for forum outside of the core api
+ * Library of functions for partforum outside of the core api
  */
 
 require_once($CFG->dirroot . '/mod/partforum/lib.php');
 require_once($CFG->libdir . '/portfolio/caller.php');
 
 /**
- * @package   mod-forum
+ * @package   mod-partforum
  * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -34,7 +34,7 @@ class partforum_portfolio_caller extends portfolio_module_caller_base {
     protected $attachment;
 
     private $post;
-    private $forum;
+    private $partforum;
     private $discussion;
     private $posts;
     private $keyedfiles; // just using multifiles isn't enough if we're exporting a full thread
@@ -83,15 +83,15 @@ class partforum_portfolio_caller extends portfolio_module_caller_base {
             throw new portfolio_caller_exception('invaliddiscussionid', 'partforum');
         }
 
-        if (!$this->forum = $DB->get_record('partforum', array('id' => $this->discussion->forum))) {
-            throw new portfolio_caller_exception('invalidforumid', 'partforum');
+        if (!$this->partforum = $DB->get_record('partforum', array('id' => $this->discussion->partforum))) {
+            throw new portfolio_caller_exception('invalidpartforumid', 'partforum');
         }
 
-        if (!$this->cm = get_coursemodule_from_instance('partforum', $this->forum->id)) {
+        if (!$this->cm = get_coursemodule_from_instance('partforum', $this->partforum->id)) {
             throw new portfolio_caller_exception('invalidcoursemodule');
         }
 
-        $this->modcontext = get_context_instance(CONTEXT_MODULE, $this->cm->id);
+        $this->modcontext = context_module::instance($this->cm->id);
         $fs = get_file_storage();
         if ($this->post) {
             if ($this->attachment) {
@@ -202,7 +202,7 @@ class partforum_portfolio_caller extends portfolio_module_caller_base {
             $manifest = ($this->exporter->get('format') instanceof PORTFOLIO_FORMAT_RICH);
             if ($writingleap) {
                 // add on an extra 'selection' entry
-                $selection = new portfolio_format_leap2a_entry('forumdiscussion' . $this->discussionid,
+                $selection = new portfolio_format_leap2a_entry('partforumdiscussion' . $this->discussionid,
                     get_string('discussion', 'partforum') . ': ' . $this->discussion->name, 'selection');
                 $leapwriter->add_entry($selection);
                 $leapwriter->make_selection($selection, $ids, 'Grouping');
@@ -230,7 +230,7 @@ class partforum_portfolio_caller extends portfolio_module_caller_base {
 
     /**
      * helper function to add a leap2a entry element
-     * that corresponds to a single forum post,
+     * that corresponds to a single partforum post,
      * including any attachments
      *
      * the entry/ies are added directly to the leapwriter, which is passed by ref
@@ -242,12 +242,12 @@ class partforum_portfolio_caller extends portfolio_module_caller_base {
      * @return int id of new entry
      */
     private function prepare_post_leap2a(portfolio_format_leap2a_writer $leapwriter, $post, $posthtml) {
-        $entry = new portfolio_format_leap2a_entry('forumpost' . $post->id,  $post->subject, 'resource', $posthtml);
+        $entry = new portfolio_format_leap2a_entry('partforumpost' . $post->id,  $post->subject, 'resource', $posthtml);
         $entry->published = $post->created;
         $entry->updated = $post->modified;
         $entry->author = $post->author;
         if (is_array($this->keyedfiles) && array_key_exists($post->id, $this->keyedfiles) && is_array($this->keyedfiles[$post->id])) {
-            $leapwriter->link_files($entry, $this->keyedfiles[$post->id], 'forumpost' . $post->id . 'attachment');
+            $leapwriter->link_files($entry, $this->keyedfiles[$post->id], 'partforumpost' . $post->id . 'attachment');
         }
         $entry->add_category('web', 'resource_type');
         $leapwriter->add_entry($entry);
@@ -274,7 +274,7 @@ class partforum_portfolio_caller extends portfolio_module_caller_base {
         }
     }
     /**
-     * this is a very cut down version of what is in forum_make_mail_post
+     * this is a very cut down version of what is in partforum_make_mail_post
      *
      * @global object
      * @param int $post
@@ -298,7 +298,7 @@ class partforum_portfolio_caller extends portfolio_module_caller_base {
         $formattedtext = format_text($post->message, $post->messageformat, $options, $this->get('course')->id);
         $formattedtext = portfolio_rewrite_pluginfile_urls($formattedtext, $this->modcontext->id, 'mod_partforum', 'post', $post->id, $format);
 
-        $output = '<table border="0" cellpadding="3" cellspacing="0" class="forumpost">';
+        $output = '<table border="0" cellpadding="3" cellspacing="0" class="partforumpost">';
 
         $output .= '<tr class="header"><td>';// can't print picture.
         $output .= '</td>';
@@ -372,7 +372,7 @@ class partforum_portfolio_caller extends portfolio_module_caller_base {
      * @return bool
      */
     function check_permissions() {
-        $context = get_context_instance(CONTEXT_MODULE, $this->cm->id);
+        $context = context_module::instance($this->cm->id);
         if ($this->post) {
             return (has_capability('mod/partforum:exportpost', $context)
                 || ($this->post->userid == $this->user->id

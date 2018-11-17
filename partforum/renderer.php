@@ -16,18 +16,18 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * This file contains a custom renderer class used by the forum module.
+ * This file contains a custom renderer class used by the partforum module.
  *
- * @package mod-forum
+ * @package mod-partforum
  * @copyright 2009 Sam Hemelryk
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
 /**
  * A custom renderer class that extends the plugin_renderer_base and
- * is used by the forum module.
+ * is used by the partforum module.
  *
- * @package mod-forum
+ * @package mod-partforum
  * @copyright 2009 Sam Hemelryk
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  **/
@@ -77,16 +77,16 @@ class mod_partforum_renderer extends plugin_renderer_base {
      * the subscribers page if editing was turned off
      *
      * @param array $users
-     * @param object $forum
+     * @param object $partforum
      * @param object $course
      * @return string
      */
-    public function subscriber_overview($users, $forum , $course) {
+    public function subscriber_overview($users, $partforum , $course) {
         $output = '';
         if (!$users || !is_array($users) || count($users)===0) {
             $output .= $this->output->heading(get_string("nosubscribers", "partforum"));
         } else {
-            $output .= $this->output->heading(get_string("subscribersto","partforum", "'".format_string($forum->name)."'"));
+            $output .= $this->output->heading(get_string("subscribersto","partforum", "'".format_string($partforum->name)."'"));
             $table = new html_table();
             $table->cellpadding = 5;
             $table->cellspacing = 5;

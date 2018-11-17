@@ -19,7 +19,7 @@
  * Definition of log events
  *
  * @package    mod
- * @subpackage forum
+ * @subpackage partforum
  * @copyright  2010 Petr Skoda (http://skodak.org)
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -38,7 +38,7 @@ $logs = array(
     array('module'=>'partforum', 'action'=>'move discussion', 'mtable'=>'partforum_discussions', 'field'=>'name'),
     array('module'=>'partforum', 'action'=>'view subscribers', 'mtable'=>'partforum', 'field'=>'name'),
     array('module'=>'partforum', 'action'=>'view discussion', 'mtable'=>'partforum_discussions', 'field'=>'name'),
-    array('module'=>'partforum', 'action'=>'view forum', 'mtable'=>'partforum', 'field'=>'name'),
+    array('module'=>'partforum', 'action'=>'view partforum', 'mtable'=>'partforum', 'field'=>'name'),
     array('module'=>'partforum', 'action'=>'subscribe', 'mtable'=>'partforum', 'field'=>'name'),
     array('module'=>'partforum', 'action'=>'unsubscribe', 'mtable'=>'partforum', 'field'=>'name'),
 );

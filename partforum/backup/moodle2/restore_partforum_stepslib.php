@@ -27,7 +27,7 @@
  */
 
 /**
- * Structure step to restore one forum activity
+ * Structure step to restore one partforum activity
  */
 class restore_partforum_activity_structure_step extends restore_activity_structure_step {
 
@@ -74,7 +74,7 @@ class restore_partforum_activity_structure_step extends restore_activity_structu
         $oldid = $data->id;
         $data->course = $this->get_courseid();
 
-        $data->forum = $this->get_new_parentid('partforum');
+        $data->partforum = $this->get_new_parentid('partforum');
         $data->timemodified = $this->apply_date_offset($data->timemodified);
         $data->timestart = $this->apply_date_offset($data->timestart);
         $data->timeend = $this->apply_date_offset($data->timeend);
@@ -143,7 +143,7 @@ class restore_partforum_activity_structure_step extends restore_activity_structu
         $data = (object)$data;
         $oldid = $data->id;
 
-        $data->forum = $this->get_new_parentid('partforum');
+        $data->partforum = $this->get_new_parentid('partforum');
         $data->userid = $this->get_mappingid('user', $data->userid);
 
         $newitemid = $DB->insert_record('partforum_subscriptions', $data);
@@ -155,7 +155,7 @@ class restore_partforum_activity_structure_step extends restore_activity_structu
         $data = (object)$data;
         $oldid = $data->id;
 
-        $data->forumid = $this->get_new_parentid('partforum');
+        $data->partforumid = $this->get_new_parentid('partforum');
         $data->discussionid = $this->get_mappingid('partforum_discussion', $data->discussionid);
         $data->postid = $this->get_mappingid('partforum_post', $data->postid);
         $data->userid = $this->get_mappingid('user', $data->userid);
@@ -169,7 +169,7 @@ class restore_partforum_activity_structure_step extends restore_activity_structu
         $data = (object)$data;
         $oldid = $data->id;
 
-        $data->forumid = $this->get_new_parentid('partforum');
+        $data->partforumid = $this->get_new_parentid('partforum');
         $data->userid = $this->get_mappingid('user', $data->userid);
 
         $newitemid = $DB->insert_record('partforum_track_prefs', $data);
@@ -178,23 +178,23 @@ class restore_partforum_activity_structure_step extends restore_activity_structu
     protected function after_execute() {
         global $DB;
 
-        // Add forum related files, no need to match by itemname (just internally handled context)
+        // Add partforum related files, no need to match by itemname (just internally handled context)
         $this->add_related_files('mod_partforum', 'intro', null);
 
-        // If the forum is of type 'single' and no discussion has been ignited
-        // (non-userinfo backup/restore) create the discussion here, using forum
+        // If the partforum is of type 'single' and no discussion has been ignited
+        // (non-userinfo backup/restore) create the discussion here, using partforum
         // information as base for the initial post.
-        $forumid = $this->task->get_activityid();
-        $forumrec = $DB->get_record('partforum', array('id' => $forumid));
-        if ($forumrec->type == 'single' && !$DB->record_exists('partforum_discussions', array('forum' => $forumid))) {
-            // Create single discussion/lead post from forum data
+        $partforumid = $this->task->get_activityid();
+        $partforumrec = $DB->get_record('partforum', array('id' => $partforumid));
+        if ($partforumrec->type == 'single' && !$DB->record_exists('partforum_discussions', array('partforum' => $partforumid))) {
+            // Create single discussion/lead post from partforum data
             $sd = new stdclass();
-            $sd->course   = $forumrec->course;
-            $sd->forum    = $forumrec->id;
-            $sd->name     = $forumrec->name;
-            $sd->assessed = $forumrec->assessed;
-            $sd->message  = $forumrec->intro;
-            $sd->messageformat = $forumrec->introformat;
+            $sd->course   = $partforumrec->course;
+            $sd->partforum    = $partforumrec->id;
+            $sd->name     = $partforumrec->name;
+            $sd->assessed = $partforumrec->assessed;
+            $sd->message  = $partforumrec->intro;
+            $sd->messageformat = $partforumrec->introformat;
             $sd->messagetrust  = true;
             $sd->mailnow  = false;
             $sdid = partforum_add_discussion($sd, null, $sillybyrefvar, $this->task->get_userid());

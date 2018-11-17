@@ -6,9 +6,9 @@ changeForumType();
 */
 
 function changeForumType(){
-	// Get the forum type
-	var forumtype = document.getElementById("id_type");
-	var selected = forumtype.options[forumtype.selectedIndex].value;
+	// Get the partforum type
+	var partforumtype = document.getElementById("id_type");
+	var selected = partforumtype.options[partforumtype.selectedIndex].value;
 	
 	// Read settings of form inputs
 	var aggrtype = document.getElementById("id_assessed");

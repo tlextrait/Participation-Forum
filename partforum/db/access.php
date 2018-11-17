@@ -16,7 +16,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * Capability definitions for the forum module.
+ * Capability definitions for the partforum module.
  *
  * The capabilities are loaded into the database table when the module is
  * installed or updated. Whenever the capability definitions are updated,
@@ -36,7 +36,7 @@
  * Core moodle capabilities are defined thus:
  *    moodle/<capabilityclass>:<capabilityname>
  *
- * Examples: mod/forum:viewpost
+ * Examples: mod/partforum:viewpost
  *           block/recent_activity:view
  *           moodle/site:deleteuser
  *
@@ -48,6 +48,19 @@
  */
 
 $capabilities = array(
+    
+    'mod/partforum:addinstance' => array(
+        'riskbitmask' => RISK_XSS,
+
+        'captype' => 'write',
+        'contextlevel' => CONTEXT_COURSE,
+        'archetypes' => array(
+            'editingteacher' => CAP_ALLOW,
+            'manager' => CAP_ALLOW
+        ),
+        'clonepermissionsfrom' => 'moodle/course:manageactivities'
+    ),
+
 
     'mod/partforum:viewdiscussion' => array(
 
@@ -162,7 +175,7 @@ $capabilities = array(
             'editingteacher' => CAP_ALLOW,
             'manager' => CAP_ALLOW
         ),
-        'clonepermissionsfrom' =>  'mod/forum:viewanyrating'
+        'clonepermissionsfrom' =>  'mod/partforum:viewanyrating'
     ),
 
     'mod/partforum:rate' => array(

@@ -16,7 +16,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @package mod-forum
+ * @package mod-partforum
  * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -53,35 +53,35 @@ define('PARTFORUM_TRACKING_ON', 2);
  *
  * @global object
  * @global object
- * @param object $forum add forum instance (with magic quotes)
+ * @param object $partforum add partforum instance (with magic quotes)
  * @return int intance id
  */
-function partforum_add_instance($forum, $mform) {
+function partforum_add_instance($partforum, $mform) {
     global $CFG, $DB;
 
-    $forum->timemodified = time();
+    $partforum->timemodified = time();
 
-    if (empty($forum->assessed)) {
-        $forum->assessed = 0;
+    if (empty($partforum->assessed)) {
+        $partforum->assessed = 0;
     }
 
-    if (empty($forum->ratingtime) or empty($forum->assessed)) {
-        $forum->assesstimestart  = 0;
-        $forum->assesstimefinish = 0;
+    if (empty($partforum->ratingtime) or empty($partforum->assessed)) {
+        $partforum->assesstimestart  = 0;
+        $partforum->assesstimefinish = 0;
     }
+    
+    $partforum->id = $DB->insert_record('partforum', $partforum);
+    $modcontext = context_module::instance($partforum->coursemodule);
 
-    $forum->id = $DB->insert_record('partforum', $forum);
-    $modcontext = get_context_instance(CONTEXT_MODULE, $forum->coursemodule);
-
-    if ($forum->type == 'single') {  // Create related discussion.
+    if ($partforum->type == 'single') {  // Create related discussion.
         $discussion = new stdClass();
-        $discussion->course        = $forum->course;
-        $discussion->forum         = $forum->id;
-        $discussion->name          = $forum->name;
-        $discussion->assessed      = $forum->assessed;
-        $discussion->message       = $forum->intro;
-        $discussion->messageformat = $forum->introformat;
-        $discussion->messagetrust  = trusttext_trusted(get_context_instance(CONTEXT_COURSE, $forum->course));
+        $discussion->course        = $partforum->course;
+        $discussion->partforum         = $partforum->id;
+        $discussion->name          = $partforum->name;
+        $discussion->assessed      = $partforum->assessed;
+        $discussion->message       = $partforum->intro;
+        $discussion->messageformat = $partforum->introformat;
+        $discussion->messagetrust  = trusttext_trusted(context_course::instance($partforum->course));
         $discussion->mailnow       = false;
         $discussion->groupid       = -1;
 
@@ -99,22 +99,22 @@ function partforum_add_instance($forum, $mform) {
         }
     }
 
-    if ($forum->forcesubscribe == PARTFORUM_INITIALSUBSCRIBE) {
+    if ($partforum->forcesubscribe == PARTFORUM_INITIALSUBSCRIBE) {
     /// all users should be subscribed initially
-    /// Note: partforum_get_potential_subscribers should take the forum context,
-    /// but that does not exist yet, becuase the forum is only half build at this
-    /// stage. However, because the forum is brand new, we know that there are
-    /// no role assignments or overrides in the forum context, so using the
+    /// Note: partforum_get_potential_subscribers should take the partforum context,
+    /// but that does not exist yet, becuase the partforum is only half build at this
+    /// stage. However, because the partforum is brand new, we know that there are
+    /// no role assignments or overrides in the partforum context, so using the
     /// course context gives the same list of users.
         $users = partforum_get_potential_subscribers($modcontext, 0, 'u.id, u.email', '');
         foreach ($users as $user) {
-            partforum_subscribe($user->id, $forum->id);
+            partforum_subscribe($user->id, $partforum->id);
         }
     }
 
-    partforum_grade_item_update($forum);
+    partforum_grade_item_update($partforum);
 
-    return $forum->id;
+    return $partforum->id;
 }
 
 
@@ -124,47 +124,47 @@ function partforum_add_instance($forum, $mform) {
  * will update an existing instance with new data.
  *
  * @global object
- * @param object $forum forum instance (with magic quotes)
+ * @param object $partforum partforum instance (with magic quotes)
  * @return bool success
  */
-function partforum_update_instance($forum, $mform) {
+function partforum_update_instance($partforum, $mform) {
     global $DB, $OUTPUT, $USER;
 
-    $forum->timemodified = time();
-    $forum->id           = $forum->instance;
+    $partforum->timemodified = time();
+    $partforum->id           = $partforum->instance;
 
-    if (empty($forum->assessed)) {
-        $forum->assessed = 0;
+    if (empty($partforum->assessed)) {
+        $partforum->assessed = 0;
     }
 
-    if (empty($forum->ratingtime) or empty($forum->assessed)) {
-        $forum->assesstimestart  = 0;
-        $forum->assesstimefinish = 0;
+    if (empty($partforum->ratingtime) or empty($partforum->assessed)) {
+        $partforum->assesstimestart  = 0;
+        $partforum->assesstimefinish = 0;
     }
+    
+    $oldpartforum = $DB->get_record('partforum', array('id'=>$partforum->id));
 
-    $oldforum = $DB->get_record('partforum', array('id'=>$forum->id));
-
-    // MDL-3942 - if the aggregation type or scale (i.e. max grade) changes then recalculate the grades for the entire forum
+    // MDL-3942 - if the aggregation type or scale (i.e. max grade) changes then recalculate the grades for the entire partforum
     // if  scale changes - do we need to recheck the ratings, if ratings higher than scale how do we want to respond?
     // for count and sum aggregation types the grade we check to make sure they do not exceed the scale (i.e. max score) when calculating the grade
-    if (($oldforum->assessed<>$forum->assessed) or ($oldforum->scale<>$forum->scale)) {
-        partforum_update_grades($forum); // recalculate grades for the forum
+    if (($oldpartforum->assessed<>$partforum->assessed) or ($oldpartforum->scale<>$partforum->scale)) {
+        partforum_update_grades($partforum); // recalculate grades for the partforum
     }
 
-    if ($forum->type == 'single') {  // Update related discussion and post.
-        if (! $discussion = $DB->get_record('partforum_discussions', array('forum'=>$forum->id))) {
-            if ($discussions = $DB->get_records('partforum_discussions', array('forum'=>$forum->id), 'timemodified ASC')) {
-                echo $OUTPUT->notification('Warning! There is more than one discussion in this forum - using the most recent');
+    if ($partforum->type == 'single') {  // Update related discussion and post.
+        if (! $discussion = $DB->get_record('partforum_discussions', array('partforum'=>$partforum->id))) {
+            if ($discussions = $DB->get_records('partforum_discussions', array('partforum'=>$partforum->id), 'timemodified ASC')) {
+                echo $OUTPUT->notification('Warning! There is more than one discussion in this partforum - using the most recent');
                 $discussion = array_pop($discussions);
             } else {
                 // try to recover by creating initial discussion - MDL-16262
                 $discussion = new stdClass();
-                $discussion->course          = $forum->course;
-                $discussion->forum           = $forum->id;
-                $discussion->name            = $forum->name;
-                $discussion->assessed        = $forum->assessed;
-                $discussion->message         = $forum->intro;
-                $discussion->messageformat   = $forum->introformat;
+                $discussion->course          = $partforum->course;
+                $discussion->partforum           = $partforum->id;
+                $discussion->name            = $partforum->name;
+                $discussion->assessed        = $partforum->assessed;
+                $discussion->message         = $partforum->intro;
+                $discussion->messageformat   = $partforum->introformat;
                 $discussion->messagetrust    = true;
                 $discussion->mailnow         = false;
                 $discussion->groupid         = -1;
@@ -173,7 +173,7 @@ function partforum_update_instance($forum, $mform) {
 
                 partforum_add_discussion($discussion, null, $message);
 
-                if (! $discussion = $DB->get_record('partforum_discussions', array('forum'=>$forum->id))) {
+                if (! $discussion = $DB->get_record('partforum_discussions', array('partforum'=>$partforum->id))) {
                     print_error('cannotadd', 'partforum');
                 }
             }
@@ -182,8 +182,8 @@ function partforum_update_instance($forum, $mform) {
             print_error('cannotfindfirstpost', 'partforum');
         }
 
-        $cm         = get_coursemodule_from_instance('partforum', $forum->id);
-        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id, MUST_EXIST);
+        $cm         = get_coursemodule_from_instance('partforum', $partforum->id);
+        $modcontext = context_module::instance($cm->id, MUST_EXIST);
 
         if ($mform and $draftid = file_get_submitted_draft_itemid('introeditor')) {
             // ugly hack - we need to copy the files somehow
@@ -193,21 +193,21 @@ function partforum_update_instance($forum, $mform) {
             $post->message = file_save_draft_area_files($draftid, $modcontext->id, 'mod_partforum', 'post', $post->id, array('subdirs'=>true), $post->message);
         }
 
-        $post->subject       = $forum->name;
-        $post->message       = $forum->intro;
-        $post->messageformat = $forum->introformat;
+        $post->subject       = $partforum->name;
+        $post->message       = $partforum->intro;
+        $post->messageformat = $partforum->introformat;
         $post->messagetrust  = trusttext_trusted($modcontext);
-        $post->modified      = $forum->timemodified;
+        $post->modified      = $partforum->timemodified;
         $post->userid        = $USER->id;    // MDL-18599, so that current teacher can take ownership of activities
 
         $DB->update_record('partforum_posts', $post);
-        $discussion->name = $forum->name;
+        $discussion->name = $partforum->name;
         $DB->update_record('partforum_discussions', $discussion);
     }
 
-    $DB->update_record('partforum', $forum);
+    $DB->update_record('partforum', $partforum);
 
-    partforum_grade_item_update($forum);
+    partforum_grade_item_update($partforum);
 
     return true;
 }
@@ -219,23 +219,23 @@ function partforum_update_instance($forum, $mform) {
  * and any data that depends on it.
  *
  * @global object
- * @param int $id forum instance id
+ * @param int $id partforum instance id
  * @return bool success
  */
 function partforum_delete_instance($id) {
     global $DB;
 
-    if (!$forum = $DB->get_record('partforum', array('id'=>$id))) {
+    if (!$partforum = $DB->get_record('partforum', array('id'=>$id))) {
         return false;
     }
-    if (!$cm = get_coursemodule_from_instance('partforum', $forum->id)) {
+    if (!$cm = get_coursemodule_from_instance('partforum', $partforum->id)) {
         return false;
     }
     if (!$course = $DB->get_record('course', array('id'=>$cm->course))) {
         return false;
     }
 
-    $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $context = context_module::instance($cm->id);
 
     // now get rid of all files
     $fs = get_file_storage();
@@ -243,32 +243,32 @@ function partforum_delete_instance($id) {
 
     $result = true;
 
-    if ($discussions = $DB->get_records('partforum_discussions', array('forum'=>$forum->id))) {
+    if ($discussions = $DB->get_records('partforum_discussions', array('partforum'=>$partforum->id))) {
         foreach ($discussions as $discussion) {
-            if (!partforum_delete_discussion($discussion, true, $course, $cm, $forum)) {
+            if (!partforum_delete_discussion($discussion, true, $course, $cm, $partforum)) {
                 $result = false;
             }
         }
     }
 
-    if (!$DB->delete_records('partforum_subscriptions', array('forum'=>$forum->id))) {
+    if (!$DB->delete_records('partforum_subscriptions', array('partforum'=>$partforum->id))) {
         $result = false;
     }
 
-    partforum_tp_delete_read_records(-1, -1, -1, $forum->id);
+    partforum_tp_delete_read_records(-1, -1, -1, $partforum->id);
 
-    if (!$DB->delete_records('partforum', array('id'=>$forum->id))) {
+    if (!$DB->delete_records('partforum', array('id'=>$partforum->id))) {
         $result = false;
     }
 
-    partforum_grade_item_delete($forum);
+    partforum_grade_item_delete($partforum);
 
     return $result;
 }
 
 
 /**
- * Indicates API features that the forum supports.
+ * Indicates API features that the partforum supports.
  *
  * @uses FEATURE_GROUPS
  * @uses FEATURE_GROUPINGS
@@ -300,8 +300,8 @@ function partforum_supports($feature) {
 
 
 /**
- * Obtains the automatic completion state for this forum based on any conditions
- * in forum settings.
+ * Obtains the automatic completion state for this partforum based on any conditions
+ * in partforum settings.
  *
  * @global object
  * @global object
@@ -315,14 +315,14 @@ function partforum_supports($feature) {
 function partforum_get_completion_state($course,$cm,$userid,$type) {
     global $CFG,$DB;
 
-    // Get forum details
-    if (!($forum=$DB->get_record('partforum',array('id'=>$cm->instance)))) {
+    // Get partforum details
+    if (!($partforum=$DB->get_record('partforum',array('id'=>$cm->instance)))) {
         throw new Exception("Can't find partforum {$cm->instance}");
     }
 
     $result=$type; // Default return value
 
-    $postcountparams=array('userid'=>$userid,'forumid'=>$forum->id);
+    $postcountparams=array('userid'=>$userid,'partforumid'=>$partforum->id);
     $postcountsql="
 SELECT
     COUNT(1)
@@ -330,19 +330,19 @@ FROM
     {partforum_posts} fp
     INNER JOIN {partforum_discussions} fd ON fp.discussion=fd.id
 WHERE
-    fp.userid=:userid AND fd.forum=:forumid";
+    fp.userid=:userid AND fd.partforum=:partforumid";
 
-    if ($forum->completiondiscussions) {
-        $value = $forum->completiondiscussions <=
-                 $DB->count_records('partforum_discussions',array('forum'=>$forum->id,'userid'=>$userid));
+    if ($partforum->completiondiscussions) {
+        $value = $partforum->completiondiscussions <=
+                 $DB->count_records('partforum_discussions',array('partforum'=>$partforum->id,'userid'=>$userid));
         if ($type == COMPLETION_AND) {
             $result = $result && $value;
         } else {
             $result = $result || $value;
         }
     }
-    if ($forum->completionreplies) {
-        $value = $forum->completionreplies <=
+    if ($partforum->completionreplies) {
+        $value = $partforum->completionreplies <=
                  $DB->get_field_sql( $postcountsql.' AND fp.parent<>0',$postcountparams);
         if ($type==COMPLETION_AND) {
             $result = $result && $value;
@@ -350,8 +350,8 @@ WHERE
             $result = $result || $value;
         }
     }
-    if ($forum->completionposts) {
-        $value = $forum->completionposts <= $DB->get_field_sql($postcountsql,$postcountparams);
+    if ($partforum->completionposts) {
+        $value = $partforum->completionposts <= $DB->get_field_sql($postcountsql,$postcountparams);
         if ($type == COMPLETION_AND) {
             $result = $result && $value;
         } else {
@@ -391,7 +391,7 @@ function partforum_cron() {
 
     // caches
     $discussions     = array();
-    $forums          = array();
+    $partforums          = array();
     $courses         = array();
     $coursemodules   = array();
     $subscribedusers = array();
@@ -428,17 +428,17 @@ function partforum_cron() {
                     continue;
                 }
             }
-            $forumid = $discussions[$discussionid]->forum;
-            if (!isset($forums[$forumid])) {
-                if ($forum = $DB->get_record('partforum', array('id' => $forumid))) {
-                    $forums[$forumid] = $forum;
+            $partforumid = $discussions[$discussionid]->partforum;
+            if (!isset($partforums[$partforumid])) {
+                if ($partforum = $DB->get_record('partforum', array('id' => $partforumid))) {
+                    $partforums[$partforumid] = $partforum;
                 } else {
-                    mtrace('Could not find forum '.$forumid);
+                    mtrace('Could not find partforum '.$partforumid);
                     unset($posts[$pid]);
                     continue;
                 }
             }
-            $courseid = $forums[$forumid]->course;
+            $courseid = $partforums[$partforumid]->course;
             if (!isset($courses[$courseid])) {
                 if ($course = $DB->get_record('course', array('id' => $courseid))) {
                     $courses[$courseid] = $course;
@@ -448,25 +448,25 @@ function partforum_cron() {
                     continue;
                 }
             }
-            if (!isset($coursemodules[$forumid])) {
-                if ($cm = get_coursemodule_from_instance('partforum', $forumid, $courseid)) {
-                    $coursemodules[$forumid] = $cm;
+            if (!isset($coursemodules[$partforumid])) {
+                if ($cm = get_coursemodule_from_instance('partforum', $partforumid, $courseid)) {
+                    $coursemodules[$partforumid] = $cm;
                 } else {
-                    mtrace('Could not find course module for forum '.$forumid);
+                    mtrace('Could not find course module for partforum '.$partforumid);
                     unset($posts[$pid]);
                     continue;
                 }
             }
 
 
-            // caching subscribed users of each forum
-            if (!isset($subscribedusers[$forumid])) {
-                $modcontext = get_context_instance(CONTEXT_MODULE, $coursemodules[$forumid]->id);
-                if ($subusers = partforum_subscribed_users($courses[$courseid], $forums[$forumid], 0, $modcontext, "u.*")) {
+            // caching subscribed users of each partforum
+            if (!isset($subscribedusers[$partforumid])) {
+                $modcontext = context_module::instance($coursemodules[$partforumid]->id);
+                if ($subusers = partforum_subscribed_users($courses[$courseid], $partforums[$partforumid], 0, $modcontext, "u.*")) {
                     foreach ($subusers as $postuser) {
                         unset($postuser->description); // not necessary
-                        // this user is subscribed to this forum
-                        $subscribedusers[$forumid][$postuser->id] = $postuser->id;
+                        // this user is subscribed to this partforum
+                        $subscribedusers[$partforumid][$postuser->id] = $postuser->id;
                         // this user is a user we have to process later
                         $users[$postuser->id] = $postuser;
                     }
@@ -499,28 +499,28 @@ function partforum_cron() {
             $userto->markposts     = array();
 
             // reset the caches
-            foreach ($coursemodules as $forumid=>$unused) {
-                $coursemodules[$forumid]->cache       = new stdClass();
-                $coursemodules[$forumid]->cache->caps = array();
-                unset($coursemodules[$forumid]->uservisible);
+            foreach ($coursemodules as $partforumid=>$unused) {
+                $coursemodules[$partforumid]->cache       = new stdClass();
+                $coursemodules[$partforumid]->cache->caps = array();
+                unset($coursemodules[$partforumid]->uservisible);
             }
 
             foreach ($posts as $pid => $post) {
 
-                // Set up the environment for the post, discussion, forum, course
+                // Set up the environment for the post, discussion, partforum, course
                 $discussion = $discussions[$post->discussion];
-                $forum      = $forums[$discussion->forum];
-                $course     = $courses[$forum->course];
-                $cm         =& $coursemodules[$forum->id];
+                $partforum      = $partforums[$discussion->partforum];
+                $course     = $courses[$partforum->course];
+                $cm         =& $coursemodules[$partforum->id];
 
                 // Do some checks  to see if we can bail out now
                 // Only active enrolled users are in the list of subscribers
-                if (!isset($subscribedusers[$forum->id][$userto->id])) {
-                    continue; // user does not subscribe to this forum
+                if (!isset($subscribedusers[$partforum->id][$userto->id])) {
+                    continue; // user does not subscribe to this partforum
                 }
 
-                // Don't send email if the forum is Q&A and the user has not posted
-                if ($forum->type == 'qanda' && !partforum_get_user_posted_time($discussion->id, $userto->id)) {
+                // Don't send email if the partforum is Q&A and the user has not posted
+                if ($partforum->type == 'qanda' && !partforum_get_user_posted_time($discussion->id, $userto->id)) {
                     mtrace('Did not email '.$userto->id.' because user has not posted in discussion');
                     continue;
                 }
@@ -542,21 +542,21 @@ function partforum_cron() {
                 cron_setup_user($userto, $course);
 
                 // Fill caches
-                if (!isset($userto->viewfullnames[$forum->id])) {
-                    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
-                    $userto->viewfullnames[$forum->id] = has_capability('moodle/site:viewfullnames', $modcontext);
+                if (!isset($userto->viewfullnames[$partforum->id])) {
+                    $modcontext = context_module::instance($cm->id);
+                    $userto->viewfullnames[$partforum->id] = has_capability('moodle/site:viewfullnames', $modcontext);
                 }
                 if (!isset($userto->canpost[$discussion->id])) {
-                    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
-                    $userto->canpost[$discussion->id] = partforum_user_can_post($forum, $discussion, $userto, $cm, $course, $modcontext);
+                    $modcontext = context_module::instance($cm->id);
+                    $userto->canpost[$discussion->id] = partforum_user_can_post($partforum, $discussion, $userto, $cm, $course, $modcontext);
                 }
-                if (!isset($userfrom->groups[$forum->id])) {
+                if (!isset($userfrom->groups[$partforum->id])) {
                     if (!isset($userfrom->groups)) {
                         $userfrom->groups = array();
                         $users[$userfrom->id]->groups = array();
                     }
-                    $userfrom->groups[$forum->id] = groups_get_all_groups($course->id, $userfrom->id, $cm->groupingid);
-                    $users[$userfrom->id]->groups[$forum->id] = $userfrom->groups[$forum->id];
+                    $userfrom->groups[$partforum->id] = groups_get_all_groups($course->id, $userfrom->id, $cm->groupingid);
+                    $users[$userfrom->id]->groups[$partforum->id] = $userfrom->groups[$partforum->id];
                 }
 
                 // Make sure groups allow this user to see this email
@@ -572,7 +572,7 @@ function partforum_cron() {
                 }
 
                 // Make sure we're allowed to see it...
-                if (!partforum_user_can_see_post($forum, $discussion, $post, NULL, $cm)) {
+                if (!partforum_user_can_see_post($partforum, $discussion, $post, NULL, $cm)) {
                     mtrace('user '.$userto->id. ' can not see '.$post->id);
                     continue;
                 }
@@ -594,12 +594,12 @@ function partforum_cron() {
 
                 // Prepare to actually send the post now, and build up the content
 
-                $cleanforumname = str_replace('"', "'", strip_tags(format_string($forum->name)));
+                $cleanpartforumname = str_replace('"', "'", strip_tags(format_string($partforum->name)));
 
                 $userfrom->customheaders = array (  // Headers to make emails easier to track
                            'Precedence: Bulk',
-                           'List-Id: "'.$cleanforumname.'" <moodleforum'.$forum->id.'@'.$hostname.'>',
-                           'List-Help: '.$CFG->wwwroot.'/mod/partforum/view.php?f='.$forum->id,
+                           'List-Id: "'.$cleanpartforumname.'" <moodlepartforum'.$partforum->id.'@'.$hostname.'>',
+                           'List-Help: '.$CFG->wwwroot.'/mod/partforum/view.php?f='.$partforum->id,
                            'Message-ID: <moodlepost'.$post->id.'@'.$hostname.'>',
                            'X-Course-Id: '.$course->id,
                            'X-Course-Name: '.format_string($course->fullname, true)
@@ -611,8 +611,8 @@ function partforum_cron() {
                 }
 
                 $postsubject = "$course->shortname: ".format_string($post->subject,true);
-                $posttext = partforum_make_mail_text($course, $cm, $forum, $discussion, $post, $userfrom, $userto);
-                $posthtml = partforum_make_mail_html($course, $cm, $forum, $discussion, $post, $userfrom, $userto);
+                $posttext = partforum_make_mail_text($course, $cm, $partforum, $discussion, $post, $userfrom, $userto);
+                $posthtml = partforum_make_mail_html($course, $cm, $partforum, $discussion, $post, $userfrom, $userto);
 
                 // Send the post now!
 
@@ -631,7 +631,7 @@ function partforum_cron() {
 
                 $smallmessagestrings = new stdClass();
                 $smallmessagestrings->user = fullname($userfrom);
-                $smallmessagestrings->forumname = "{$course->shortname}: ".format_string($forum->name,true).": ".$discussion->name;
+                $smallmessagestrings->partforumname = "{$course->shortname}: ".format_string($partforum->name,true).": ".$discussion->name;
                 $smallmessagestrings->message = $post->message;
                 //make sure strings are in message recipients language
                 $eventdata->smallmessage = get_string_manager()->get_string('smallmessage', 'partforum', $smallmessagestrings, $userto->lang);
@@ -649,8 +649,8 @@ function partforum_cron() {
                 } else {
                     $mailcount[$post->id]++;
 
-                // Mark post as read if forum_usermarksread is set off
-                    if (!$CFG->forum_usermarksread) {
+                // Mark post as read if partforum_usermarksread is set off
+                    if (!$CFG->partforum_usermarksread) {
                         $userto->markposts[$post->id] = $post->id;
                     }
                 }
@@ -701,7 +701,7 @@ function partforum_cron() {
 
     if ($CFG->digestmailtimelast < $digesttime and $timenow > $digesttime) {
 
-        mtrace('Sending forum digests: '.userdate($timenow, '', $sitetimezone));
+        mtrace('Sending partforum digests: '.userdate($timenow, '', $sitetimezone));
 
         $digestposts_rs = $DB->get_recordset_select('partforum_queue', "timemodified < ?", array($digesttime));
 
@@ -739,16 +739,16 @@ function partforum_cron() {
                         continue;
                     }
                 }
-                $forumid = $discussions[$discussionid]->forum;
-                if (!isset($forums[$forumid])) {
-                    if ($forum = $DB->get_record('partforum', array('id' => $forumid))) {
-                        $forums[$forumid] = $forum;
+                $partforumid = $discussions[$discussionid]->partforum;
+                if (!isset($partforums[$partforumid])) {
+                    if ($partforum = $DB->get_record('partforum', array('id' => $partforumid))) {
+                        $partforums[$partforumid] = $partforum;
                     } else {
                         continue;
                     }
                 }
 
-                $courseid = $forums[$forumid]->course;
+                $courseid = $partforums[$partforumid]->course;
                 if (!isset($courses[$courseid])) {
                     if ($course = $DB->get_record('course', array('id' => $courseid))) {
                         $courses[$courseid] = $course;
@@ -757,9 +757,9 @@ function partforum_cron() {
                     }
                 }
 
-                if (!isset($coursemodules[$forumid])) {
-                    if ($cm = get_coursemodule_from_instance('partforum', $forumid, $courseid)) {
-                        $coursemodules[$forumid] = $cm;
+                if (!isset($coursemodules[$partforumid])) {
+                    if ($cm = get_coursemodule_from_instance('partforum', $partforumid, $courseid)) {
+                        $coursemodules[$partforumid] = $cm;
                     } else {
                         continue;
                     }
@@ -809,41 +809,41 @@ function partforum_cron() {
                     @set_time_limit(120);   // to be reset for each post
 
                     $discussion = $discussions[$discussionid];
-                    $forum      = $forums[$discussion->forum];
-                    $course     = $courses[$forum->course];
-                    $cm         = $coursemodules[$forum->id];
+                    $partforum      = $partforums[$discussion->partforum];
+                    $course     = $courses[$partforum->course];
+                    $cm         = $coursemodules[$partforum->id];
 
                     //override language
                     cron_setup_user($userto, $course);
 
                     // Fill caches
-                    if (!isset($userto->viewfullnames[$forum->id])) {
-                        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
-                        $userto->viewfullnames[$forum->id] = has_capability('moodle/site:viewfullnames', $modcontext);
+                    if (!isset($userto->viewfullnames[$partforum->id])) {
+                        $modcontext = context_module::instance($cm->id);
+                        $userto->viewfullnames[$partforum->id] = has_capability('moodle/site:viewfullnames', $modcontext);
                     }
                     if (!isset($userto->canpost[$discussion->id])) {
-                        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
-                        $userto->canpost[$discussion->id] = partforum_user_can_post($forum, $discussion, $userto, $cm, $course, $modcontext);
+                        $modcontext = context_module::instance($cm->id);
+                        $userto->canpost[$discussion->id] = partforum_user_can_post($partforum, $discussion, $userto, $cm, $course, $modcontext);
                     }
 
-                    $strforums      = get_string('forums', 'partforum');
-                    $canunsubscribe = ! partforum_is_forcesubscribed($forum);
+                    $strpartforums      = get_string('partforums', 'partforum');
+                    $canunsubscribe = ! partforum_is_forcesubscribed($partforum);
                     $canreply       = $userto->canpost[$discussion->id];
 
                     $posttext .= "\n \n";
                     $posttext .= '=====================================================================';
                     $posttext .= "\n \n";
-                    $posttext .= "$course->shortname -> $strforums -> ".format_string($forum->name,true);
-                    if ($discussion->name != $forum->name) {
+                    $posttext .= "$course->shortname -> $strpartforums -> ".format_string($partforum->name,true);
+                    if ($discussion->name != $partforum->name) {
                         $posttext  .= " -> ".format_string($discussion->name,true);
                     }
                     $posttext .= "\n";
 
                     $posthtml .= "<p><font face=\"sans-serif\">".
                     "<a target=\"_blank\" href=\"$CFG->wwwroot/course/view.php?id=$course->id\">$course->shortname</a> -> ".
-                    "<a target=\"_blank\" href=\"$CFG->wwwroot/mod/partforum/index.php?id=$course->id\">$strforums</a> -> ".
-                    "<a target=\"_blank\" href=\"$CFG->wwwroot/mod/partforum/view.php?f=$forum->id\">".format_string($forum->name,true)."</a>";
-                    if ($discussion->name == $forum->name) {
+                    "<a target=\"_blank\" href=\"$CFG->wwwroot/mod/partforum/index.php?id=$course->id\">$strpartforums</a> -> ".
+                    "<a target=\"_blank\" href=\"$CFG->wwwroot/mod/partforum/view.php?f=$partforum->id\">".format_string($partforum->name,true)."</a>";
+                    if ($discussion->name == $partforum->name) {
                         $posthtml .= "</font></p>";
                     } else {
                         $posthtml .= " -> <a target=\"_blank\" href=\"$CFG->wwwroot/mod/partforum/discuss.php?d=$discussion->id\">".format_string($discussion->name,true)."</a></font></p>";
@@ -865,13 +865,13 @@ function partforum_cron() {
                             continue;
                         }
 
-                        if (!isset($userfrom->groups[$forum->id])) {
+                        if (!isset($userfrom->groups[$partforum->id])) {
                             if (!isset($userfrom->groups)) {
                                 $userfrom->groups = array();
                                 $users[$userfrom->id]->groups = array();
                             }
-                            $userfrom->groups[$forum->id] = groups_get_all_groups($course->id, $userfrom->id, $cm->groupingid);
-                            $users[$userfrom->id]->groups[$forum->id] = $userfrom->groups[$forum->id];
+                            $userfrom->groups[$partforum->id] = groups_get_all_groups($course->id, $userfrom->id, $cm->groupingid);
+                            $users[$userfrom->id]->groups[$partforum->id] = $userfrom->groups[$partforum->id];
                         }
 
                         $userfrom->customheaders = array ("Precedence: Bulk");
@@ -889,17 +889,17 @@ function partforum_cron() {
 
                         } else {
                             // The full treatment
-                            $posttext .= partforum_make_mail_text($course, $cm, $forum, $discussion, $post, $userfrom, $userto, true);
-                            $posthtml .= partforum_make_mail_post($course, $cm, $forum, $discussion, $post, $userfrom, $userto, false, $canreply, true, false);
+                            $posttext .= partforum_make_mail_text($course, $cm, $partforum, $discussion, $post, $userfrom, $userto, true);
+                            $posthtml .= partforum_make_mail_post($course, $cm, $partforum, $discussion, $post, $userfrom, $userto, false, $canreply, true, false);
 
                         // Create an array of postid's for this user to mark as read.
-                            if (!$CFG->forum_usermarksread) {
+                            if (!$CFG->partforum_usermarksread) {
                                 $userto->markposts[$post->id] = $post->id;
                             }
                         }
                     }
                     if ($canunsubscribe) {
-                        $posthtml .= "\n<div class='mdl-right'><font size=\"1\"><a href=\"$CFG->wwwroot/mod/partforum/subscribe.php?id=$forum->id\">".get_string("unsubscribe", "partforum")."</a></font></div>";
+                        $posthtml .= "\n<div class='mdl-right'><font size=\"1\"><a href=\"$CFG->wwwroot/mod/partforum/subscribe.php?id=$partforum->id\">".get_string("unsubscribe", "partforum")."</a></font></div>";
                     } else {
                         $posthtml .= "\n<div class='mdl-right'><font size=\"1\">".get_string("everyoneissubscribed", "partforum")."</font></div>";
                     }
@@ -914,8 +914,8 @@ function partforum_cron() {
 
                 $attachment = $attachname='';
                 $usetrueaddress = true;
-                //directly email forum digests rather than sending them via messaging
-                $mailresult = email_to_user($userto, $site->shortname, $postsubject, $posttext, $posthtml, $attachment, $attachname, $usetrueaddress, $CFG->forum_replytouser);
+                //directly email partforum digests rather than sending them via messaging
+                $mailresult = email_to_user($userto, $site->shortname, $postsubject, $posttext, $posthtml, $attachment, $attachname, $usetrueaddress, $CFG->partforum_replytouser);
 
                 if (!$mailresult) {
                     mtrace("ERROR!");
@@ -925,7 +925,7 @@ function partforum_cron() {
                     mtrace("success.");
                     $usermailcount++;
 
-                    // Mark post as read if forum_usermarksread is set off
+                    // Mark post as read if partforum_usermarksread is set off
                     partforum_tp_mark_posts_read($userto, $userto->markposts);
                 }
             }
@@ -940,15 +940,15 @@ function partforum_cron() {
         mtrace(get_string('digestsentusers', 'partforum', $usermailcount));
     }
 
-    if (!empty($CFG->forum_lastreadclean)) {
+    if (!empty($CFG->partforum_lastreadclean)) {
         $timenow = time();
-        if ($CFG->forum_lastreadclean + (24*3600) < $timenow) {
-            set_config('forum_lastreadclean', $timenow);
-            mtrace('Removing old forum read tracking info...');
+        if ($CFG->partforum_lastreadclean + (24*3600) < $timenow) {
+            set_config('partforum_lastreadclean', $timenow);
+            mtrace('Removing old partforum read tracking info...');
             partforum_tp_clean_read_records();
         }
     } else {
-        set_config('forum_lastreadclean', time());
+        set_config('partforum_lastreadclean', time());
     }
 
 
@@ -963,7 +963,7 @@ function partforum_cron() {
  * @uses CONTEXT_MODULE
  * @param object $course
  * @param object $cm
- * @param object $forum
+ * @param object $partforum
  * @param object $discussion
  * @param object $post
  * @param object $userfrom
@@ -971,19 +971,19 @@ function partforum_cron() {
  * @param boolean $bare
  * @return string The email body in plain text format.
  */
-function partforum_make_mail_text($course, $cm, $forum, $discussion, $post, $userfrom, $userto, $bare = false) {
+function partforum_make_mail_text($course, $cm, $partforum, $discussion, $post, $userfrom, $userto, $bare = false) {
     global $CFG, $USER;
 
-    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $modcontext = context_module::instance($cm->id);
 
-    if (!isset($userto->viewfullnames[$forum->id])) {
+    if (!isset($userto->viewfullnames[$partforum->id])) {
         $viewfullnames = has_capability('moodle/site:viewfullnames', $modcontext, $userto->id);
     } else {
-        $viewfullnames = $userto->viewfullnames[$forum->id];
+        $viewfullnames = $userto->viewfullnames[$partforum->id];
     }
 
     if (!isset($userto->canpost[$discussion->id])) {
-        $canreply = partforum_user_can_post($forum, $discussion, $userto, $cm, $course, $modcontext);
+        $canreply = partforum_user_can_post($partforum, $discussion, $userto, $cm, $course, $modcontext);
     } else {
         $canreply = $userto->canpost[$discussion->id];
     }
@@ -994,16 +994,16 @@ function partforum_make_mail_text($course, $cm, $forum, $discussion, $post, $use
 
     $strbynameondate = get_string('bynameondate', 'partforum', $by);
 
-    $strforums = get_string('forums', 'partforum');
+    $strpartforums = get_string('partforums', 'partforum');
 
-    $canunsubscribe = ! partforum_is_forcesubscribed($forum);
+    $canunsubscribe = ! partforum_is_forcesubscribed($partforum);
 
     $posttext = '';
 
     if (!$bare) {
-        $posttext  = "$course->shortname -> $strforums -> ".format_string($forum->name,true);
+        $posttext  = "$course->shortname -> $strpartforums -> ".format_string($partforum->name,true);
 
-        if ($discussion->name != $forum->name) {
+        if ($discussion->name != $partforum->name) {
             $posttext  .= " -> ".format_string($discussion->name,true);
         }
     }
@@ -1030,7 +1030,7 @@ function partforum_make_mail_text($course, $cm, $forum, $discussion, $post, $use
     if (!$bare && $canunsubscribe) {
         $posttext .= "\n---------------------------------------------------------------------\n";
         $posttext .= get_string("unsubscribe", "partforum");
-        $posttext .= ": $CFG->wwwroot/mod/partforum/subscribe.php?id=$forum->id\n";
+        $posttext .= ": $CFG->wwwroot/mod/partforum/subscribe.php?id=$partforum->id\n";
     }
 
     return $posttext;
@@ -1042,14 +1042,14 @@ function partforum_make_mail_text($course, $cm, $forum, $discussion, $post, $use
  * @global object
  * @param object $course
  * @param object $cm
- * @param object $forum
+ * @param object $partforum
  * @param object $discussion
  * @param object $post
  * @param object $userfrom
  * @param object $userto
  * @return string The email text in HTML format
  */
-function partforum_make_mail_html($course, $cm, $forum, $discussion, $post, $userfrom, $userto) {
+function partforum_make_mail_html($course, $cm, $partforum, $discussion, $post, $userfrom, $userto) {
     global $CFG;
 
     if ($userto->mailformat != 1) {  // Needs to be HTML
@@ -1057,13 +1057,13 @@ function partforum_make_mail_html($course, $cm, $forum, $discussion, $post, $use
     }
 
     if (!isset($userto->canpost[$discussion->id])) {
-        $canreply = partforum_user_can_post($forum, $discussion, $userto);
+        $canreply = partforum_user_can_post($partforum, $discussion, $userto);
     } else {
         $canreply = $userto->canpost[$discussion->id];
     }
 
-    $strforums = get_string('forums', 'partforum');
-    $canunsubscribe = ! partforum_is_forcesubscribed($forum);
+    $strpartforums = get_string('partforums', 'partforum');
+    $canunsubscribe = ! partforum_is_forcesubscribed($partforum);
 
     $posthtml = '<head>';
     $posthtml .= '</head>';
@@ -1071,19 +1071,19 @@ function partforum_make_mail_html($course, $cm, $forum, $discussion, $post, $use
 
     $posthtml .= '<div class="navbar">'.
     '<a target="_blank" href="'.$CFG->wwwroot.'/course/view.php?id='.$course->id.'">'.$course->shortname.'</a> &raquo; '.
-    '<a target="_blank" href="'.$CFG->wwwroot.'/mod/partforum/index.php?id='.$course->id.'">'.$strforums.'</a> &raquo; '.
-    '<a target="_blank" href="'.$CFG->wwwroot.'/mod/partforum/view.php?f='.$forum->id.'">'.format_string($forum->name,true).'</a>';
-    if ($discussion->name == $forum->name) {
+    '<a target="_blank" href="'.$CFG->wwwroot.'/mod/partforum/index.php?id='.$course->id.'">'.$strpartforums.'</a> &raquo; '.
+    '<a target="_blank" href="'.$CFG->wwwroot.'/mod/partforum/view.php?f='.$partforum->id.'">'.format_string($partforum->name,true).'</a>';
+    if ($discussion->name == $partforum->name) {
         $posthtml .= '</div>';
     } else {
         $posthtml .= ' &raquo; <a target="_blank" href="'.$CFG->wwwroot.'/mod/partforum/discuss.php?d='.$discussion->id.'">'.
                      format_string($discussion->name,true).'</a></div>';
     }
-    $posthtml .= partforum_make_mail_post($course, $cm, $forum, $discussion, $post, $userfrom, $userto, false, $canreply, true, false);
+    $posthtml .= partforum_make_mail_post($course, $cm, $partforum, $discussion, $post, $userfrom, $userto, false, $canreply, true, false);
 
     if ($canunsubscribe) {
         $posthtml .= '<hr /><div class="mdl-align unsubscribelink">
-                      <a href="'.$CFG->wwwroot.'/mod/partforum/subscribe.php?id='.$forum->id.'">'.get_string('unsubscribe', 'partforum').'</a>&nbsp;
+                      <a href="'.$CFG->wwwroot.'/mod/partforum/subscribe.php?id='.$partforum->id.'">'.get_string('unsubscribe', 'partforum').'</a>&nbsp;
                       <a href="'.$CFG->wwwroot.'/mod/partforum/unsubscribeall.php">'.get_string('unsubscribeall', 'partforum').'</a></div>';
     }
 
@@ -1098,20 +1098,20 @@ function partforum_make_mail_html($course, $cm, $forum, $discussion, $post, $use
  * @param object $course
  * @param object $user
  * @param object $mod TODO this is not used in this function, refactor
- * @param object $forum
+ * @param object $partforum
  * @return object A standard object with 2 variables: info (number of posts for this user) and time (last modified)
  */
-function partforum_user_outline($course, $user, $mod, $forum) {
+function partforum_user_outline($course, $user, $mod, $partforum) {
     global $CFG;
     require_once("$CFG->libdir/gradelib.php");
-    $grades = grade_get_grades($course->id, 'mod', 'partforum', $forum->id, $user->id);
+    $grades = grade_get_grades($course->id, 'mod', 'partforum', $partforum->id, $user->id);
     if (empty($grades->items[0]->grades)) {
         $grade = false;
     } else {
         $grade = reset($grades->items[0]->grades);
     }
 
-    $count = partforum_count_user_posts($forum->id, $user->id);
+    $count = partforum_count_user_posts($partforum->id, $user->id);
 
     if ($count && $count->postcount > 0) {
         $result = new stdClass();
@@ -1146,13 +1146,13 @@ function partforum_user_outline($course, $user, $mod, $forum) {
  * @param object $coure
  * @param object $user
  * @param object $mod
- * @param object $forum
+ * @param object $partforum
  */
-function partforum_user_complete($course, $user, $mod, $forum) {
+function partforum_user_complete($course, $user, $mod, $partforum) {
     global $CFG,$USER, $OUTPUT;
     require_once("$CFG->libdir/gradelib.php");
 
-    $grades = grade_get_grades($course->id, 'mod', 'partforum', $forum->id, $user->id);
+    $grades = grade_get_grades($course->id, 'mod', 'partforum', $partforum->id, $user->id);
     if (!empty($grades->items[0]->grades)) {
         $grade = reset($grades->items[0]->grades);
         echo $OUTPUT->container(get_string('grade').': '.$grade->str_long_grade);
@@ -1161,12 +1161,12 @@ function partforum_user_complete($course, $user, $mod, $forum) {
         }
     }
 
-    if ($posts = partforum_get_user_posts($forum->id, $user->id)) {
+    if ($posts = partforum_get_user_posts($partforum->id, $user->id)) {
 
-        if (!$cm = get_coursemodule_from_instance('partforum', $forum->id, $course->id)) {
+        if (!$cm = get_coursemodule_from_instance('partforum', $partforum->id, $course->id)) {
             print_error('invalidcoursemodule');
         }
-        $discussions = partforum_get_user_involved_discussions($forum->id, $user->id);
+        $discussions = partforum_get_user_involved_discussions($partforum->id, $user->id);
 
         foreach ($posts as $post) {
             if (!isset($discussions[$post->discussion])) {
@@ -1174,7 +1174,7 @@ function partforum_user_complete($course, $user, $mod, $forum) {
             }
             $discussion = $discussions[$post->discussion];
 
-            partforum_print_post($post, $discussion, $forum, $cm, $course, false, false, false);
+            partforum_print_post($post, $discussion, $partforum, $cm, $course, false, false, false);
         }
     } else {
         echo "<p>".get_string("noposts", "partforum")."</p>";
@@ -1200,12 +1200,12 @@ function partforum_print_overview($courses,&$htmlarray) {
         return array();
     }
 
-    if (!$forums = get_all_instances_in_courses('partforum',$courses)) {
+    if (!$partforums = get_all_instances_in_courses('partforum',$courses)) {
         return;
     }
 
 
-    // get all forum logs in ONE query (much better!)
+    // get all partforum logs in ONE query (much better!)
     $params = array();
     $sql = "SELECT instance,cmid,l.course,COUNT(l.id) as count FROM {log} l "
         ." JOIN {course_modules} cm ON cm.id = cmid "
@@ -1226,24 +1226,24 @@ function partforum_print_overview($courses,&$htmlarray) {
         $new = array(); // avoid warnings
     }
 
-    // also get all forum tracking stuff ONCE.
-    $trackingforums = array();
-    foreach ($forums as $forum) {
-        if (partforum_tp_can_track_forums($forum)) {
-            $trackingforums[$forum->id] = $forum;
+    // also get all partforum tracking stuff ONCE.
+    $trackingpartforums = array();
+    foreach ($partforums as $partforum) {
+        if (partforum_tp_can_track_partforums($partforum)) {
+            $trackingpartforums[$partforum->id] = $partforum;
         }
     }
 
-    if (count($trackingforums) > 0) {
-        $cutoffdate = isset($CFG->forum_oldpostdays) ? (time() - ($CFG->forum_oldpostdays*24*60*60)) : 0;
-        $sql = 'SELECT d.forum,d.course,COUNT(p.id) AS count '.
+    if (count($trackingpartforums) > 0) {
+        $cutoffdate = isset($CFG->partforum_oldpostdays) ? (time() - ($CFG->partforum_oldpostdays*24*60*60)) : 0;
+        $sql = 'SELECT d.partforum,d.course,COUNT(p.id) AS count '.
             ' FROM {partforum_posts} p '.
             ' JOIN {partforum_discussions} d ON p.discussion = d.id '.
             ' LEFT JOIN {partforum_read} r ON r.postid = p.id AND r.userid = ? WHERE (';
         $params = array($USER->id);
 
-        foreach ($trackingforums as $track) {
-            $sql .= '(d.forum = ? AND (d.groupid = -1 OR d.groupid = 0 OR d.groupid = ?)) OR ';
+        foreach ($trackingpartforums as $track) {
+            $sql .= '(d.partforum = ? AND (d.groupid = -1 OR d.groupid = 0 OR d.groupid = ?)) OR ';
             $params[] = $track->id;
             if (isset($SESSION->currentgroup[$track->course])) {
                 $groupid =  $SESSION->currentgroup[$track->course];
@@ -1259,7 +1259,7 @@ function partforum_print_overview($courses,&$htmlarray) {
             $params[] = $groupid;
         }
         $sql = substr($sql,0,-3); // take off the last OR
-        $sql .= ') AND p.modified >= ? AND r.id is NULL GROUP BY d.forum,d.course';
+        $sql .= ') AND p.modified >= ? AND r.id is NULL GROUP BY d.partforum,d.course';
         $params[] = $cutoffdate;
 
         if (!$unread = $DB->get_records_sql($sql, $params)) {
@@ -1273,26 +1273,26 @@ function partforum_print_overview($courses,&$htmlarray) {
         return;
     }
 
-    $strforum = get_string('modulename','partforum');
+    $strpartforum = get_string('modulename','partforum');
     $strnumunread = get_string('overviewnumunread','partforum');
     $strnumpostssince = get_string('overviewnumpostssince','partforum');
 
-    foreach ($forums as $forum) {
+    foreach ($partforums as $partforum) {
         $str = '';
         $count = 0;
         $thisunread = 0;
         $showunread = false;
         // either we have something from logs, or trackposts, or nothing.
-        if (array_key_exists($forum->id, $new) && !empty($new[$forum->id])) {
-            $count = $new[$forum->id]->count;
+        if (array_key_exists($partforum->id, $new) && !empty($new[$partforum->id])) {
+            $count = $new[$partforum->id]->count;
         }
-        if (array_key_exists($forum->id,$unread)) {
-            $thisunread = $unread[$forum->id]->count;
+        if (array_key_exists($partforum->id,$unread)) {
+            $thisunread = $unread[$partforum->id]->count;
             $showunread = true;
         }
         if ($count > 0 || $thisunread > 0) {
-            $str .= '<div class="overview forum"><div class="name">'.$strforum.': <a title="'.$strforum.'" href="'.$CFG->wwwroot.'/mod/partforum/view.php?f='.$forum->id.'">'.
-                $forum->name.'</a></div>';
+            $str .= '<div class="overview partforum"><div class="name">'.$strpartforum.': <a title="'.$strpartforum.'" href="'.$CFG->wwwroot.'/mod/partforum/view.php?f='.$partforum->id.'">'.
+                $partforum->name.'</a></div>';
             $str .= '<div class="info"><span class="postsincelogin">';
             $str .= $count.' '.$strnumpostssince."</span>";
             if (!empty($showunread)) {
@@ -1301,13 +1301,13 @@ function partforum_print_overview($courses,&$htmlarray) {
             $str .= '</div></div>';
         }
         if (!empty($str)) {
-            if (!array_key_exists($forum->course,$htmlarray)) {
-                $htmlarray[$forum->course] = array();
+            if (!array_key_exists($partforum->course,$htmlarray)) {
+                $htmlarray[$partforum->course] = array();
             }
-            if (!array_key_exists('partforum',$htmlarray[$forum->course])) {
-                $htmlarray[$forum->course]['partforum'] = ''; // initialize, avoid warnings
+            if (!array_key_exists('partforum',$htmlarray[$partforum->course])) {
+                $htmlarray[$partforum->course]['partforum'] = ''; // initialize, avoid warnings
             }
-            $htmlarray[$forum->course]['partforum'] .= $str;
+            $htmlarray[$partforum->course]['partforum'] .= $str;
         }
     }
 }
@@ -1331,12 +1331,12 @@ function partforum_print_recent_activity($course, $viewfullnames, $timestart) {
 
     // do not use log table if possible, it may be huge and is expensive to join with other tables
 
-    if (!$posts = $DB->get_records_sql("SELECT p.*, f.type AS forumtype, d.forum, d.groupid,
+    if (!$posts = $DB->get_records_sql("SELECT p.*, f.type AS partforumtype, d.partforum, d.groupid,
                                               d.timestart, d.timeend, d.userid AS duserid,
                                               u.firstname, u.lastname, u.email, u.picture
                                          FROM {partforum_posts} p
                                               JOIN {partforum_discussions} d ON d.id = p.discussion
-                                              JOIN {partforum} f             ON f.id = d.forum
+                                              JOIN {partforum} f             ON f.id = d.partforum
                                               JOIN {user} u              ON u.id = p.userid
                                         WHERE p.created > ? AND f.course = ?
                                      ORDER BY p.id ASC", array($timestart, $course->id))) { // order by initial posting date
@@ -1352,21 +1352,21 @@ function partforum_print_recent_activity($course, $viewfullnames, $timestart) {
 
     $printposts = array();
     foreach ($posts as $post) {
-        if (!isset($modinfo->instances['partforum'][$post->forum])) {
+        if (!isset($modinfo->instances['partforum'][$post->partforum])) {
             // not visible
             continue;
         }
-        $cm = $modinfo->instances['partforum'][$post->forum];
+        $cm = $modinfo->instances['partforum'][$post->partforum];
         if (!$cm->uservisible) {
             continue;
         }
-        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $context = context_module::instance($cm->id);
 
         if (!has_capability('mod/partforum:viewdiscussion', $context)) {
             continue;
         }
 
-        if (!empty($CFG->forum_enabletimedposts) and $USER->id != $post->duserid
+        if (!empty($CFG->partforum_enabletimedposts) and $USER->id != $post->duserid
           and (($post->timestart > 0 and $post->timestart > time()) or ($post->timeend > 0 and $post->timeend < time()))) {
             if (!has_capability('mod/partforum:viewhiddentimedposts', $context)) {
                 continue;
@@ -1403,12 +1403,12 @@ function partforum_print_recent_activity($course, $viewfullnames, $timestart) {
         return false;
     }
 
-    echo $OUTPUT->heading(get_string('newforumposts', 'partforum').':', 3);
+    echo $OUTPUT->heading(get_string('newpartforumposts', 'partforum').':', 3);
     echo "\n<ul class='unlist'>\n";
 
     foreach ($printposts as $post) {
         $subjectclass = empty($post->parent) ? ' bold' : '';
-
+        
         echo '<li><div class="head">'.
                '<div class="date">'.userdate($post->modified, $strftimerecent).'</div>'.
                '<div class="name">'.fullname($post, $viewfullnames).'</div>'.
@@ -1434,11 +1434,11 @@ function partforum_print_recent_activity($course, $viewfullnames, $timestart) {
  *
  * @global object
  * @global object
- * @param object $forum
+ * @param object $partforum
  * @param int $userid optional user id, 0 means all users
  * @return array array of grades, false if none
  */
-function partforum_get_user_grades($forum, $userid = 0) {
+function partforum_get_user_grades($partforum, $userid = 0) {
     global $CFG;
 
     require_once($CFG->dirroot.'/rating/lib.php');
@@ -1449,10 +1449,10 @@ function partforum_get_user_grades($forum, $userid = 0) {
 
     //need these to work backwards to get a context id. Is there a better way to get contextid from a module instance?
     $ratingoptions->modulename = 'partforum';
-    $ratingoptions->moduleid   = $forum->id;
+    $ratingoptions->moduleid   = $partforum->id;
     $ratingoptions->userid = $userid;
-    $ratingoptions->aggregationmethod = $forum->assessed;
-    $ratingoptions->scaleid = $forum->scale;
+    $ratingoptions->aggregationmethod = $partforum->assessed;
+    $ratingoptions->scaleid = $partforum->scale;
     $ratingoptions->itemtable = 'partforum_posts';
     $ratingoptions->itemtableusercolumn = 'userid';
 
@@ -1465,29 +1465,29 @@ function partforum_get_user_grades($forum, $userid = 0) {
  *
  * @global object
  * @global object
- * @param object $forum
+ * @param object $partforum
  * @param int $userid specific user only, 0 means all
  * @param boolean $nullifnone return null if grade does not exist
  * @return void
  */
-function partforum_update_grades($forum, $userid=0, $nullifnone=true) {
+function partforum_update_grades($partforum, $userid=0, $nullifnone=true) {
     global $CFG, $DB;
     require_once($CFG->libdir.'/gradelib.php');
 
-    if (!$forum->assessed) {
-        partforum_grade_item_update($forum);
+    if (!$partforum->assessed) {
+        partforum_grade_item_update($partforum);
 
-    } else if ($grades = partforum_get_user_grades($forum, $userid)) {
-        partforum_grade_item_update($forum, $grades);
+    } else if ($grades = partforum_get_user_grades($partforum, $userid)) {
+        partforum_grade_item_update($partforum, $grades);
 
     } else if ($userid and $nullifnone) {
         $grade = new stdClass();
         $grade->userid   = $userid;
         $grade->rawgrade = NULL;
-        partforum_grade_item_update($forum, $grade);
+        partforum_grade_item_update($partforum, $grade);
 
     } else {
-        partforum_grade_item_update($forum);
+        partforum_grade_item_update($partforum);
     }
 }
 
@@ -1508,12 +1508,12 @@ function partforum_upgrade_grades() {
              WHERE m.name='partforum' AND m.id=cm.module AND cm.instance=f.id";
     $rs = $DB->get_recordset_sql($sql);
     if ($rs->valid()) {
-        $pbar = new progress_bar('forumupgradegrades', 500, true);
+        $pbar = new progress_bar('partforumupgradegrades', 500, true);
         $i=0;
-        foreach ($rs as $forum) {
+        foreach ($rs as $partforum) {
             $i++;
             upgrade_set_timeout(60*5); // set up timeout, may also abort execution
-            partforum_update_grades($forum, 0, false);
+            partforum_update_grades($partforum, 0, false);
             $pbar->update($i, $count, "Updating Forum grades ($i/$count).");
         }
     }
@@ -1521,39 +1521,39 @@ function partforum_upgrade_grades() {
 }
 
 /**
- * Create/update grade item for given forum
+ * Create/update grade item for given partforum
  *
  * @global object
  * @uses GRADE_TYPE_NONE
  * @uses GRADE_TYPE_VALUE
  * @uses GRADE_TYPE_SCALE
- * @param object $forum object with extra cmidnumber
+ * @param object $partforum object with extra cmidnumber
  * @param mixed $grades optional array/object of grade(s); 'reset' means reset grades in gradebook
  * @return int 0 if ok
  */
-function partforum_grade_item_update($forum, $grades=NULL) {
+function partforum_grade_item_update($partforum, $grades=NULL) {
     global $CFG;
     if (!function_exists('grade_update')) { //workaround for buggy PHP versions
         require_once($CFG->libdir.'/gradelib.php');
     }
     
-    if($forum->cmidnumber != ''){
-        $params = array('itemname'=>$forum->name, 'idnumber'=>$forum->cmidnumber);
+    if($partforum->cmidnumber != ''){
+        $params = array('itemname'=>$partforum->name, 'idnumber'=>$partforum->cmidnumber);
 	}else{
-	    $params = array('itemname'=>$forum->name);
+	    $params = array('itemname'=>$partforum->name);
 	}
     
-    if (!$forum->assessed or $forum->scale == 0) {
+    if (!$partforum->assessed or $partforum->scale == 0) {
         $params['gradetype'] = GRADE_TYPE_NONE;
 
-    } else if ($forum->scale > 0) {
+    } else if ($partforum->scale > 0) {
         $params['gradetype'] = GRADE_TYPE_VALUE;
-        $params['grademax']  = $forum->scale;
+        $params['grademax']  = $partforum->scale;
         $params['grademin']  = 0;
 
-    } else if ($forum->scale < 0) {
+    } else if ($partforum->scale < 0) {
         $params['gradetype'] = GRADE_TYPE_SCALE;
-        $params['scaleid']   = -$forum->scale;
+        $params['scaleid']   = -$partforum->scale;
     }
 
     if ($grades  === 'reset') {
@@ -1561,53 +1561,53 @@ function partforum_grade_item_update($forum, $grades=NULL) {
         $grades = NULL;
     }
 
-    return grade_update('mod/partforum', $forum->course, 'mod', 'partforum', $forum->id, 0, $grades, $params);
+    return grade_update('mod/partforum', $partforum->course, 'mod', 'partforum', $partforum->id, 0, $grades, $params);
 }
 
 /**
- * Delete grade item for given forum
+ * Delete grade item for given partforum
  *
  * @global object
- * @param object $forum object
+ * @param object $partforum object
  * @return object grade_item
  */
-function partforum_grade_item_delete($forum) {
+function partforum_grade_item_delete($partforum) {
     global $CFG;
     require_once($CFG->libdir.'/gradelib.php');
 
-    return grade_update('mod/partforum', $forum->course, 'mod', 'partforum', $forum->id, 0, NULL, array('deleted'=>1));
+    return grade_update('mod/partforum', $partforum->course, 'mod', 'partforum', $partforum->id, 0, NULL, array('deleted'=>1));
 }
 
 
 /**
- * Returns the users with data in one forum
- * (users with records in forum_subscriptions, forum_posts, students)
+ * Returns the users with data in one partforum
+ * (users with records in partforum_subscriptions, partforum_posts, students)
  *
  * @todo: deprecated - to be deleted in 2.2
  *
- * @param int $forumid
+ * @param int $partforumid
  * @return mixed array or false if none
  */
-function partforum_get_participants($forumid) {
+function partforum_get_participants($partforumid) {
 
     global $CFG, $DB;
 
-    $params = array('forumid' => $forumid);
+    $params = array('partforumid' => $partforumid);
 
-    //Get students from forum_subscriptions
+    //Get students from partforum_subscriptions
     $sql = "SELECT DISTINCT u.id, u.id
               FROM {user} u,
                    {partforum_subscriptions} s
-             WHERE s.forum = :forumid AND
+             WHERE s.partforum = :partforumid AND
                    u.id = s.userid";
     $st_subscriptions = $DB->get_records_sql($sql, $params);
 
-    //Get students from forum_posts
+    //Get students from partforum_posts
     $sql = "SELECT DISTINCT u.id, u.id
               FROM {user} u,
                    {partforum_discussions} d,
                    {partforum_posts} p
-              WHERE d.forum = :forumid AND
+              WHERE d.partforum = :partforumid AND
                     p.discussion = d.id AND
                     u.id = p.userid";
     $st_posts = $DB->get_records_sql($sql, $params);
@@ -1617,7 +1617,7 @@ function partforum_get_participants($forumid) {
               FROM {partforum_discussions} d
               JOIN {partforum_posts} p ON p.discussion = d.id
               JOIN {rating} r on r.itemid = p.id
-             WHERE d.forum = :forumid AND
+             WHERE d.partforum = :partforumid AND
                    r.component = 'mod_partforum' AND
                    r.ratingarea = 'post'";
     $st_ratings = $DB->get_records_sql($sql, $params);
@@ -1639,18 +1639,18 @@ function partforum_get_participants($forumid) {
 }
 
 /**
- * This function returns if a scale is being used by one forum
+ * This function returns if a scale is being used by one partforum
  *
  * @global object
- * @param int $forumid
+ * @param int $partforumid
  * @param int $scaleid negative number
  * @return bool
  */
-function partforum_scale_used ($forumid,$scaleid) {
+function partforum_scale_used ($partforumid,$scaleid) {
     global $DB;
     $return = false;
 
-    $rec = $DB->get_record("partforum",array("id" => "$forumid","scale" => "-$scaleid"));
+    $rec = $DB->get_record("partforum",array("id" => "$partforumid","scale" => "-$scaleid"));
 
     if (!empty($rec) && !empty($scaleid)) {
         $return = true;
@@ -1660,13 +1660,13 @@ function partforum_scale_used ($forumid,$scaleid) {
 }
 
 /**
- * Checks if scale is being used by any instance of forum
+ * Checks if scale is being used by any instance of partforum
  *
  * This is used to find out if scale used anywhere
  *
  * @global object
  * @param $scaleid int
- * @return boolean True if the scale is used by any forum
+ * @return boolean True if the scale is used by any partforum
  */
 function partforum_scale_used_anywhere($scaleid) {
     global $DB;
@@ -1681,7 +1681,7 @@ function partforum_scale_used_anywhere($scaleid) {
 
 /**
  * Gets a post with all info ready for partforum_print_post
- * Most of these joins are just to get the forum id
+ * Most of these joins are just to get the partforum id
  *
  * @global object
  * @global object
@@ -1691,7 +1691,7 @@ function partforum_scale_used_anywhere($scaleid) {
 function partforum_get_post_full($postid) {
     global $CFG, $DB;
 
-    return $DB->get_record_sql("SELECT p.*, d.forum, u.firstname, u.lastname, u.email, u.picture, u.imagealt
+    return $DB->get_record_sql("SELECT p.*, d.partforum, u.firstname, u.lastname, u.email, u.picture, u.imagealt
                              FROM {partforum_posts} p
                                   JOIN {partforum_discussions} d ON p.discussion = d.id
                                   LEFT JOIN {user} u ON p.userid = u.id
@@ -1700,17 +1700,17 @@ function partforum_get_post_full($postid) {
 
 /**
  * Gets posts with all info ready for partforum_print_post
- * We pass forumid in because we always know it so no need to make a
+ * We pass partforumid in because we always know it so no need to make a
  * complicated join to find it out.
  *
  * @global object
  * @global object
  * @return mixed array of posts or false
  */
-function partforum_get_discussion_posts($discussion, $sort, $forumid) {
+function partforum_get_discussion_posts($discussion, $sort, $partforumid) {
     global $CFG, $DB;
 
-    return $DB->get_records_sql("SELECT p.*, $forumid AS forum, u.firstname, u.lastname, u.email, u.picture, u.imagealt
+    return $DB->get_records_sql("SELECT p.*, $partforumid AS partforum, u.firstname, u.lastname, u.email, u.picture, u.imagealt
                               FROM {partforum_posts} p
                          LEFT JOIN {user} u ON p.userid = u.id
                              WHERE p.discussion = ?
@@ -1725,7 +1725,7 @@ function partforum_get_discussion_posts($discussion, $sort, $forumid) {
  * @global object
  * @param int $discussionid
  * @param string $sort
- * @param bool $tracking does user track the forum?
+ * @param bool $tracking does user track the partforum?
  * @return array of posts
  */
 function partforum_get_all_discussion_posts($discussionid, $sort, $tracking=false) {
@@ -1737,7 +1737,7 @@ function partforum_get_all_discussion_posts($discussionid, $sort, $tracking=fals
 
     if ($tracking) {
         $now = time();
-        $cutoffdate = $now - ($CFG->forum_oldpostdays * 24 * 3600);
+        $cutoffdate = $now - ($CFG->partforum_oldpostdays * 24 * 3600);
         $tr_sel  = ", fr.id AS postread";
         $tr_join = "LEFT JOIN {partforum_read} fr ON (fr.postid = p.id AND fr.userid = ?)";
         $params[] = $USER->id;
@@ -1776,19 +1776,19 @@ function partforum_get_all_discussion_posts($discussionid, $sort, $tracking=fals
 
 /**
  * Gets posts with all info ready for partforum_print_post
- * We pass forumid in because we always know it so no need to make a
+ * We pass partforumid in because we always know it so no need to make a
  * complicated join to find it out.
  *
  * @global object
  * @global object
  * @param int $parent
- * @param int $forumid
+ * @param int $partforumid
  * @return array
  */
-function partforum_get_child_posts($parent, $forumid) {
+function partforum_get_child_posts($parent, $partforumid) {
     global $CFG, $DB;
 
-    return $DB->get_records_sql("SELECT p.*, $forumid AS forum, u.firstname, u.lastname, u.email, u.picture, u.imagealt
+    return $DB->get_records_sql("SELECT p.*, $partforumid AS partforum, u.firstname, u.lastname, u.email, u.picture, u.imagealt
                               FROM {partforum_posts} p
                          LEFT JOIN {user} u ON p.userid = u.id
                              WHERE p.parent = ?
@@ -1796,24 +1796,24 @@ function partforum_get_child_posts($parent, $forumid) {
 }
 
 /**
- * An array of forum objects that the user is allowed to read/search through.
+ * An array of partforum objects that the user is allowed to read/search through.
  *
  * @global object
  * @global object
  * @global object
  * @param int $userid
- * @param int $courseid if 0, we look for forums throughout the whole site.
- * @return array of forum objects, or false if no matches
+ * @param int $courseid if 0, we look for partforums throughout the whole site.
+ * @return array of partforum objects, or false if no matches
  *         Forum objects have the following attributes:
  *         id, type, course, cmid, cmvisible, cmgroupmode, accessallgroups,
  *         viewhiddentimedposts
  */
-function partforum_get_readable_forums($userid, $courseid=0) {
+function partforum_get_readable_partforums($userid, $courseid=0) {
 
     global $CFG, $DB, $USER;
     require_once($CFG->dirroot.'/course/lib.php');
 
-    if (!$forummod = $DB->get_record('modules', array('name' => 'partforum'))) {
+    if (!$partforummod = $DB->get_record('modules', array('name' => 'partforum'))) {
         print_error('notinstalled', 'partforum');
     }
 
@@ -1829,7 +1829,7 @@ function partforum_get_readable_forums($userid, $courseid=0) {
         return array();
     }
 
-    $readableforums = array();
+    $readablepartforums = array();
 
     foreach ($courses as $course) {
 
@@ -1839,20 +1839,20 @@ function partforum_get_readable_forums($userid, $courseid=0) {
         }
 
         if (empty($modinfo->instances['partforum'])) {
-            // hmm, no forums?
+            // hmm, no partforums?
             continue;
         }
 
-        $courseforums = $DB->get_records('partforum', array('course' => $course->id));
+        $coursepartforums = $DB->get_records('partforum', array('course' => $course->id));
 
-        foreach ($modinfo->instances['partforum'] as $forumid => $cm) {
-            if (!$cm->uservisible or !isset($courseforums[$forumid])) {
+        foreach ($modinfo->instances['partforum'] as $partforumid => $cm) {
+            if (!$cm->uservisible or !isset($coursepartforums[$partforumid])) {
                 continue;
             }
-            $context = get_context_instance(CONTEXT_MODULE, $cm->id);
-            $forum = $courseforums[$forumid];
-            $forum->context = $context;
-            $forum->cm = $cm;
+            $context = context_module::instance($cm->id);
+            $partforum = $coursepartforums[$partforumid];
+            $partforum->context = $context;
+            $partforum->cm = $cm;
 
             if (!has_capability('mod/partforum:viewdiscussion', $context)) {
                 continue;
@@ -1864,43 +1864,43 @@ function partforum_get_readable_forums($userid, $courseid=0) {
                     $modinfo->groups = groups_get_user_groups($course->id, $USER->id);
                 }
                 if (isset($modinfo->groups[$cm->groupingid])) {
-                    $forum->onlygroups = $modinfo->groups[$cm->groupingid];
-                    $forum->onlygroups[] = -1;
+                    $partforum->onlygroups = $modinfo->groups[$cm->groupingid];
+                    $partforum->onlygroups[] = -1;
                 } else {
-                    $forum->onlygroups = array(-1);
+                    $partforum->onlygroups = array(-1);
                 }
             }
 
         /// hidden timed discussions
-            $forum->viewhiddentimedposts = true;
-            if (!empty($CFG->forum_enabletimedposts)) {
+            $partforum->viewhiddentimedposts = true;
+            if (!empty($CFG->partforum_enabletimedposts)) {
                 if (!has_capability('mod/partforum:viewhiddentimedposts', $context)) {
-                    $forum->viewhiddentimedposts = false;
+                    $partforum->viewhiddentimedposts = false;
                 }
             }
 
         /// qanda access
-            if ($forum->type == 'qanda'
+            if ($partforum->type == 'qanda'
                     && !has_capability('mod/partforum:viewqandawithoutposting', $context)) {
 
-                // We need to check whether the user has posted in the qanda forum.
-                $forum->onlydiscussions = array();  // Holds discussion ids for the discussions
-                                                    // the user is allowed to see in this forum.
-                if ($discussionspostedin = partforum_discussions_user_has_posted_in($forum->id, $USER->id)) {
+                // We need to check whether the user has posted in the qanda partforum.
+                $partforum->onlydiscussions = array();  // Holds discussion ids for the discussions
+                                                    // the user is allowed to see in this partforum.
+                if ($discussionspostedin = partforum_discussions_user_has_posted_in($partforum->id, $USER->id)) {
                     foreach ($discussionspostedin as $d) {
-                        $forum->onlydiscussions[] = $d->id;
+                        $partforum->onlydiscussions[] = $d->id;
                     }
                 }
             }
 
-            $readableforums[$forum->id] = $forum;
+            $readablepartforums[$partforum->id] = $partforum;
         }
 
         unset($modinfo);
 
     } // End foreach $courses
 
-    return $readableforums;
+    return $readablepartforums;
 }
 
 /**
@@ -1922,9 +1922,9 @@ function partforum_search_posts($searchterms, $courseid=0, $limitfrom=0, $limitn
     global $CFG, $DB, $USER;
     require_once($CFG->libdir.'/searchlib.php');
 
-    $forums = partforum_get_readable_forums($USER->id, $courseid);
+    $partforums = partforum_get_readable_partforums($USER->id, $courseid);
 
-    if (count($forums) == 0) {
+    if (count($partforums) == 0) {
         $totalcount = 0;
         return false;
     }
@@ -1935,21 +1935,21 @@ function partforum_search_posts($searchterms, $courseid=0, $limitfrom=0, $limitn
     $where = array();
     $params = array();
 
-    foreach ($forums as $forumid => $forum) {
+    foreach ($partforums as $partforumid => $partforum) {
         $select = array();
 
-        if (!$forum->viewhiddentimedposts) {
-            $select[] = "(d.userid = :userid{$forumid} OR (d.timestart < :timestart{$forumid} AND (d.timeend = 0 OR d.timeend > :timeend{$forumid})))";
-            $params = array_merge($params, array('userid'.$forumid=>$USER->id, 'timestart'.$forumid=>$now, 'timeend'.$forumid=>$now));
+        if (!$partforum->viewhiddentimedposts) {
+            $select[] = "(d.userid = :userid{$partforumid} OR (d.timestart < :timestart{$partforumid} AND (d.timeend = 0 OR d.timeend > :timeend{$partforumid})))";
+            $params = array_merge($params, array('userid'.$partforumid=>$USER->id, 'timestart'.$partforumid=>$now, 'timeend'.$partforumid=>$now));
         }
 
-        $cm = $forum->cm;
-        $context = $forum->context;
+        $cm = $partforum->cm;
+        $context = $partforum->context;
 
-        if ($forum->type == 'qanda'
+        if ($partforum->type == 'qanda'
             && !has_capability('mod/partforum:viewqandawithoutposting', $context)) {
-            if (!empty($forum->onlydiscussions)) {
-                list($discussionid_sql, $discussionid_params) = $DB->get_in_or_equal($forum->onlydiscussions, SQL_PARAMS_NAMED, 'qanda'.$forumid.'_');
+            if (!empty($partforum->onlydiscussions)) {
+                list($discussionid_sql, $discussionid_params) = $DB->get_in_or_equal($partforum->onlydiscussions, SQL_PARAMS_NAMED, 'qanda'.$partforumid.'_');
                 $params = array_merge($params, $discussionid_params);
                 $select[] = "(d.id $discussionid_sql OR p.parent = 0)";
             } else {
@@ -1957,25 +1957,25 @@ function partforum_search_posts($searchterms, $courseid=0, $limitfrom=0, $limitn
             }
         }
 
-        if (!empty($forum->onlygroups)) {
-            list($groupid_sql, $groupid_params) = $DB->get_in_or_equal($forum->onlygroups, SQL_PARAMS_NAMED, 'grps'.$forumid.'_');
+        if (!empty($partforum->onlygroups)) {
+            list($groupid_sql, $groupid_params) = $DB->get_in_or_equal($partforum->onlygroups, SQL_PARAMS_NAMED, 'grps'.$partforumid.'_');
             $params = array_merge($params, $groupid_params);
             $select[] = "d.groupid $groupid_sql";
         }
 
         if ($select) {
             $selects = implode(" AND ", $select);
-            $where[] = "(d.forum = :forum{$forumid} AND $selects)";
-            $params['partforum'.$forumid] = $forumid;
+            $where[] = "(d.partforum = :partforum{$partforumid} AND $selects)";
+            $params['partforum'.$partforumid] = $partforumid;
         } else {
-            $fullaccess[] = $forumid;
+            $fullaccess[] = $partforumid;
         }
     }
 
     if ($fullaccess) {
         list($fullid_sql, $fullid_params) = $DB->get_in_or_equal($fullaccess, SQL_PARAMS_NAMED, 'fula');
         $params = array_merge($params, $fullid_params);
-        $where[] = "(d.forum $fullid_sql)";
+        $where[] = "(d.partforum $fullid_sql)";
     }
 
     $selectdiscussion = "(".implode(" OR ", $where).")";
@@ -2002,17 +2002,17 @@ function partforum_search_posts($searchterms, $courseid=0, $limitfrom=0, $limitn
     // Experimental feature under 1.8! MDL-8830
     // Use alternative text searches if defined
     // This feature only works under mysql until properly implemented for other DBs
-    // Requires manual creation of text index for forum_posts before enabling it:
-    // CREATE FULLTEXT INDEX foru_post_tix ON [prefix]forum_posts (subject, message)
+    // Requires manual creation of text index for partforum_posts before enabling it:
+    // CREATE FULLTEXT INDEX foru_post_tix ON [prefix]partforum_posts (subject, message)
     // Experimental feature under 1.8! MDL-8830
-        if (!empty($CFG->forum_usetextsearches)) {
+        if (!empty($CFG->partforum_usetextsearches)) {
             list($messagesearch, $msparams) = search_generate_text_SQL($parsearray, 'p.message', 'p.subject',
                                                  'p.userid', 'u.id', 'u.firstname',
-                                                 'u.lastname', 'p.modified', 'd.forum');
+                                                 'u.lastname', 'p.modified', 'd.partforum');
         } else {
             list($messagesearch, $msparams) = search_generate_SQL($parsearray, 'p.message', 'p.subject',
                                                  'p.userid', 'u.id', 'u.firstname',
-                                                 'u.lastname', 'p.modified', 'd.forum');
+                                                 'u.lastname', 'p.modified', 'd.partforum');
         }
         $params = array_merge($params, $msparams);
     }
@@ -2032,7 +2032,7 @@ function partforum_search_posts($searchterms, $courseid=0, $limitfrom=0, $limitn
                   WHERE $selectsql";
 
     $searchsql = "SELECT p.*,
-                         d.forum,
+                         d.partforum,
                          u.firstname,
                          u.lastname,
                          u.email,
@@ -2083,7 +2083,7 @@ function partforum_get_unmailed_posts($starttime, $endtime, $now=null) {
     global $CFG, $DB;
 
     $params = array($starttime, $endtime);
-    if (!empty($CFG->forum_enabletimedposts)) {
+    if (!empty($CFG->partforum_enabletimedposts)) {
         if (empty($now)) {
             $now = time();
         }
@@ -2094,7 +2094,7 @@ function partforum_get_unmailed_posts($starttime, $endtime, $now=null) {
         $timedsql = "";
     }
 
-    return $DB->get_records_sql("SELECT p.*, d.course, d.forum
+    return $DB->get_records_sql("SELECT p.*, d.course, d.partforum
                               FROM {partforum_posts} p
                                    JOIN {partforum_discussions} d ON d.id = p.discussion
                              WHERE p.mailed = 0
@@ -2119,7 +2119,7 @@ function partforum_mark_old_posts_as_mailed($endtime, $now=null) {
         $now = time();
     }
 
-    if (empty($CFG->forum_enabletimedposts)) {
+    if (empty($CFG->partforum_enabletimedposts)) {
         return $DB->execute("UPDATE {partforum_posts}
                                SET mailed = '1'
                              WHERE (created < ? OR mailnow = 1)
@@ -2137,22 +2137,22 @@ function partforum_mark_old_posts_as_mailed($endtime, $now=null) {
 }
 
 /**
- * Get all the posts for a user in a forum suitable for partforum_print_post
+ * Get all the posts for a user in a partforum suitable for partforum_print_post
  *
  * @global object
  * @global object
  * @uses CONTEXT_MODULE
  * @return array
  */
-function partforum_get_user_posts($forumid, $userid) {
+function partforum_get_user_posts($partforumid, $userid) {
     global $CFG, $DB;
 
     $timedsql = "";
-    $params = array($forumid, $userid);
+    $params = array($partforumid, $userid);
 
-    if (!empty($CFG->forum_enabletimedposts)) {
-        $cm = get_coursemodule_from_instance('partforum', $forumid);
-        if (!has_capability('mod/partforum:viewhiddentimedposts' , get_context_instance(CONTEXT_MODULE, $cm->id))) {
+    if (!empty($CFG->partforum_enabletimedposts)) {
+        $cm = get_coursemodule_from_instance('partforum', $partforumid);
+        if (!has_capability('mod/partforum:viewhiddentimedposts' , context_module::instance($cm->id))) {
             $now = time();
             $timedsql = "AND (d.timestart < ? AND (d.timeend = 0 OR d.timeend > ?))";
             $params[] = $now;
@@ -2160,9 +2160,9 @@ function partforum_get_user_posts($forumid, $userid) {
         }
     }
 
-    return $DB->get_records_sql("SELECT p.*, d.forum, u.firstname, u.lastname, u.email, u.picture, u.imagealt
+    return $DB->get_records_sql("SELECT p.*, d.partforum, u.firstname, u.lastname, u.email, u.picture, u.imagealt
                               FROM {partforum} f
-                                   JOIN {partforum_discussions} d ON d.forum = f.id
+                                   JOIN {partforum_discussions} d ON d.partforum = f.id
                                    JOIN {partforum_posts} p       ON p.discussion = d.id
                                    JOIN {user} u              ON u.id = p.userid
                              WHERE f.id = ?
@@ -2177,18 +2177,18 @@ function partforum_get_user_posts($forumid, $userid) {
  * @global object
  * @global object
  * @uses CONTEXT_MODULE
- * @param int $forumid
+ * @param int $partforumid
  * @param int $userid
  * @return array Array or false
  */
-function partforum_get_user_involved_discussions($forumid, $userid) {
+function partforum_get_user_involved_discussions($partforumid, $userid) {
     global $CFG, $DB;
 
     $timedsql = "";
-    $params = array($forumid, $userid);
-    if (!empty($CFG->forum_enabletimedposts)) {
-        $cm = get_coursemodule_from_instance('partforum', $forumid);
-        if (!has_capability('mod/partforum:viewhiddentimedposts' , get_context_instance(CONTEXT_MODULE, $cm->id))) {
+    $params = array($partforumid, $userid);
+    if (!empty($CFG->partforum_enabletimedposts)) {
+        $cm = get_coursemodule_from_instance('partforum', $partforumid);
+        if (!has_capability('mod/partforum:viewhiddentimedposts' , context_module::instance($cm->id))) {
             $now = time();
             $timedsql = "AND (d.timestart < ? AND (d.timeend = 0 OR d.timeend > ?))";
             $params[] = $now;
@@ -2198,7 +2198,7 @@ function partforum_get_user_involved_discussions($forumid, $userid) {
 
     return $DB->get_records_sql("SELECT DISTINCT d.*
                               FROM {partforum} f
-                                   JOIN {partforum_discussions} d ON d.forum = f.id
+                                   JOIN {partforum_discussions} d ON d.partforum = f.id
                                    JOIN {partforum_posts} p       ON p.discussion = d.id
                              WHERE f.id = ?
                                    AND p.userid = ?
@@ -2206,22 +2206,22 @@ function partforum_get_user_involved_discussions($forumid, $userid) {
 }
 
 /**
- * Get all the posts for a user in a forum suitable for partforum_print_post
+ * Get all the posts for a user in a partforum suitable for partforum_print_post
  *
  * @global object
  * @global object
- * @param int $forumid
+ * @param int $partforumid
  * @param int $userid
  * @return array of counts or false
  */
-function partforum_count_user_posts($forumid, $userid) {
+function partforum_count_user_posts($partforumid, $userid) {
     global $CFG, $DB;
 
     $timedsql = "";
-    $params = array($forumid, $userid);
-    if (!empty($CFG->forum_enabletimedposts)) {
-        $cm = get_coursemodule_from_instance('partforum', $forumid);
-        if (!has_capability('mod/partforum:viewhiddentimedposts' , get_context_instance(CONTEXT_MODULE, $cm->id))) {
+    $params = array($partforumid, $userid);
+    if (!empty($CFG->partforum_enabletimedposts)) {
+        $cm = get_coursemodule_from_instance('partforum', $partforumid);
+        if (!has_capability('mod/partforum:viewhiddentimedposts' , context_module::instance($cm->id))) {
             $now = time();
             $timedsql = "AND (d.timestart < ? AND (d.timeend = 0 OR d.timeend > ?))";
             $params[] = $now;
@@ -2231,7 +2231,7 @@ function partforum_count_user_posts($forumid, $userid) {
 
     return $DB->get_record_sql("SELECT COUNT(p.id) AS postcount, MAX(p.modified) AS lastpost
                              FROM {partforum} f
-                                  JOIN {partforum_discussions} d ON d.forum = f.id
+                                  JOIN {partforum_discussions} d ON d.partforum = f.id
                                   JOIN {partforum_posts} p       ON p.discussion = d.id
                                   JOIN {user} u              ON u.id = p.userid
                             WHERE f.id = ?
@@ -2240,7 +2240,7 @@ function partforum_count_user_posts($forumid, $userid) {
 }
 
 /**
- * Given a log entry, return the forum post details for it.
+ * Given a log entry, return the partforum post details for it.
  *
  * @global object
  * @global object
@@ -2252,7 +2252,7 @@ function partforum_get_post_from_log($log) {
 
     if ($log->action == "add post") {
 
-        return $DB->get_record_sql("SELECT p.*, f.type AS forumtype, d.forum, d.groupid,
+        return $DB->get_record_sql("SELECT p.*, f.type AS partforumtype, d.partforum, d.groupid,
                                            u.firstname, u.lastname, u.email, u.picture
                                  FROM {partforum_discussions} d,
                                       {partforum_posts} p,
@@ -2262,12 +2262,12 @@ function partforum_get_post_from_log($log) {
                                   AND d.id = p.discussion
                                   AND p.userid = u.id
                                   AND u.deleted <> '1'
-                                  AND f.id = d.forum", array($log->info));
+                                  AND f.id = d.partforum", array($log->info));
 
 
     } else if ($log->action == "add discussion") {
 
-        return $DB->get_record_sql("SELECT p.*, f.type AS forumtype, d.forum, d.groupid,
+        return $DB->get_record_sql("SELECT p.*, f.type AS partforumtype, d.partforum, d.groupid,
                                            u.firstname, u.lastname, u.email, u.picture
                                  FROM {partforum_discussions} d,
                                       {partforum_posts} p,
@@ -2277,7 +2277,7 @@ function partforum_get_post_from_log($log) {
                                   AND d.firstpost = p.id
                                   AND p.userid = u.id
                                   AND u.deleted <> '1'
-                                  AND f.id = d.forum", array($log->info));
+                                  AND f.id = d.partforum", array($log->info));
     }
     return NULL;
 }
@@ -2305,14 +2305,14 @@ function partforum_get_firstpost_from_discussion($discussionid) {
  *
  * @global object
  * @global object
- * @param int $forumid
- * @param string $forumsort
+ * @param int $partforumid
+ * @param string $partforumsort
  * @param int $limit
  * @param int $page
  * @param int $perpage
  * @return array
  */
-function partforum_count_discussion_replies($forumid, $forumsort="", $limit=-1, $page=-1, $perpage=0) {
+function partforum_count_discussion_replies($partforumid, $partforumsort="", $limit=-1, $page=-1, $perpage=0) {
     global $CFG, $DB;
 
     if ($limit > 0) {
@@ -2326,33 +2326,33 @@ function partforum_count_discussion_replies($forumid, $forumsort="", $limit=-1, 
         $limitnum  = 0;
     }
 
-    if ($forumsort == "") {
+    if ($partforumsort == "") {
         $orderby = "";
         $groupby = "";
 
     } else {
-        $orderby = "ORDER BY $forumsort";
-        $groupby = ", ".strtolower($forumsort);
+        $orderby = "ORDER BY $partforumsort";
+        $groupby = ", ".strtolower($partforumsort);
         $groupby = str_replace('desc', '', $groupby);
         $groupby = str_replace('asc', '', $groupby);
     }
 
-    if (($limitfrom == 0 and $limitnum == 0) or $forumsort == "") {
+    if (($limitfrom == 0 and $limitnum == 0) or $partforumsort == "") {
         $sql = "SELECT p.discussion, COUNT(p.id) AS replies, MAX(p.id) AS lastpostid
                   FROM {partforum_posts} p
                        JOIN {partforum_discussions} d ON p.discussion = d.id
-                 WHERE p.parent > 0 AND d.forum = ?
+                 WHERE p.parent > 0 AND d.partforum = ?
               GROUP BY p.discussion";
-        return $DB->get_records_sql($sql, array($forumid));
+        return $DB->get_records_sql($sql, array($partforumid));
 
     } else {
         $sql = "SELECT p.discussion, (COUNT(p.id) - 1) AS replies, MAX(p.id) AS lastpostid
                   FROM {partforum_posts} p
                        JOIN {partforum_discussions} d ON p.discussion = d.id
-                 WHERE d.forum = ?
+                 WHERE d.partforum = ?
               GROUP BY p.discussion $groupby
               $orderby";
-        return $DB->get_records_sql("SELECT * FROM ($sql) sq", array($forumid), $limitfrom, $limitnum);
+        return $DB->get_records_sql("SELECT * FROM ($sql) sq", array($partforumid), $limitfrom, $limitnum);
     }
 }
 
@@ -2361,12 +2361,12 @@ function partforum_count_discussion_replies($forumid, $forumsort="", $limit=-1, 
  * @global object
  * @global object
  * @staticvar array $cache
- * @param object $forum
+ * @param object $partforum
  * @param object $cm
  * @param object $course
  * @return mixed
  */
-function partforum_count_discussions($forum, $cm, $course) {
+function partforum_count_discussions($partforum, $cm, $course) {
     global $CFG, $DB, $USER;
 
     static $cache = array();
@@ -2376,7 +2376,7 @@ function partforum_count_discussions($forum, $cm, $course) {
     $params = array($course->id);
 
     if (!isset($cache[$course->id])) {
-        if (!empty($CFG->forum_enabletimedposts)) {
+        if (!empty($CFG->partforum_enabletimedposts)) {
             $timedsql = "AND d.timestart < ? AND (d.timeend = 0 OR d.timeend > ?)";
             $params[] = $now;
             $params[] = $now;
@@ -2386,7 +2386,7 @@ function partforum_count_discussions($forum, $cm, $course) {
 
         $sql = "SELECT f.id, COUNT(d.id) as dcount
                   FROM {partforum} f
-                       JOIN {partforum_discussions} d ON d.forum = f.id
+                       JOIN {partforum_discussions} d ON d.partforum = f.id
                  WHERE f.course = ?
                        $timedsql
               GROUP BY f.id";
@@ -2401,18 +2401,18 @@ function partforum_count_discussions($forum, $cm, $course) {
         }
     }
 
-    if (empty($cache[$course->id][$forum->id])) {
+    if (empty($cache[$course->id][$partforum->id])) {
         return 0;
     }
 
     $groupmode = groups_get_activity_groupmode($cm, $course);
 
     if ($groupmode != SEPARATEGROUPS) {
-        return $cache[$course->id][$forum->id];
+        return $cache[$course->id][$partforum->id];
     }
 
-    if (has_capability('moodle/site:accessallgroups', get_context_instance(CONTEXT_MODULE, $cm->id))) {
-        return $cache[$course->id][$forum->id];
+    if (has_capability('moodle/site:accessallgroups', context_module::instance($cm->id))) {
+        return $cache[$course->id][$partforum->id];
     }
 
     require_once($CFG->dirroot.'/course/lib.php');
@@ -2436,9 +2436,9 @@ function partforum_count_discussions($forum, $cm, $course) {
     }
 
     list($mygroups_sql, $params) = $DB->get_in_or_equal($mygroups);
-    $params[] = $forum->id;
+    $params[] = $partforum->id;
 
-    if (!empty($CFG->forum_enabletimedposts)) {
+    if (!empty($CFG->partforum_enabletimedposts)) {
         $timedsql = "AND d.timestart < $now AND (d.timeend = 0 OR d.timeend > $now)";
         $params[] = $now;
         $params[] = $now;
@@ -2448,7 +2448,7 @@ function partforum_count_discussions($forum, $cm, $course) {
 
     $sql = "SELECT COUNT(d.id)
               FROM {partforum_discussions} d
-             WHERE d.groupid $mygroups_sql AND d.forum = ?
+             WHERE d.groupid $mygroups_sql AND d.partforum = ?
                    $timedsql";
 
     return $DB->get_field_sql($sql, $params);
@@ -2498,7 +2498,7 @@ function partforum_count_unrated_posts($discussionid, $userid) {
 }
 
 /**
- * Get all discussions in a forum
+ * Get all discussions in a partforum
  *
  * @global object
  * @global object
@@ -2506,7 +2506,7 @@ function partforum_count_unrated_posts($discussionid, $userid) {
  * @uses CONTEXT_MODULE
  * @uses VISIBLEGROUPS
  * @param object $cm
- * @param string $forumsort
+ * @param string $partforumsort
  * @param bool $fullpost
  * @param int $unused
  * @param int $limit
@@ -2515,7 +2515,7 @@ function partforum_count_unrated_posts($discussionid, $userid) {
  * @param int $perpage
  * @return array
  */
-function partforum_get_discussions($cm, $forumsort="d.timemodified DESC", $fullpost=true, $unused=-1, $limit=-1, $userlastmodified=false, $page=-1, $perpage=0) {
+function partforum_get_discussions($cm, $partforumsort="d.timemodified DESC", $fullpost=true, $unused=-1, $limit=-1, $userlastmodified=false, $page=-1, $perpage=0) {
     global $CFG, $DB, $USER;
 
     $timelimit = '';
@@ -2523,13 +2523,13 @@ function partforum_get_discussions($cm, $forumsort="d.timemodified DESC", $fullp
     $now = round(time(), -2);
     $params = array($cm->instance);
 
-    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $modcontext = context_module::instance($cm->id);
 
     if (!has_capability('mod/partforum:viewdiscussion', $modcontext)) { /// User must have perms to view discussions
         return array();
     }
 
-    if (!empty($CFG->forum_enabletimedposts)) { /// Users must fulfill timed posts
+    if (!empty($CFG->partforum_enabletimedposts)) { /// Users must fulfill timed posts
 
         if (!has_capability('mod/partforum:viewhiddentimedposts', $modcontext)) {
             $timelimit = " AND ((d.timestart <= ? AND (d.timeend = 0 OR d.timeend > ?))";
@@ -2559,7 +2559,7 @@ function partforum_get_discussions($cm, $forumsort="d.timemodified DESC", $fullp
 
     if ($groupmode) {
         if (empty($modcontext)) {
-            $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+            $modcontext = context_module::instance($cm->id);
         }
 
         if ($groupmode == VISIBLEGROUPS or has_capability('moodle/site:accessallgroups', $modcontext)) {
@@ -2584,8 +2584,8 @@ function partforum_get_discussions($cm, $forumsort="d.timemodified DESC", $fullp
     }
 
 
-    if (empty($forumsort)) {
-        $forumsort = "d.timemodified DESC";
+    if (empty($partforumsort)) {
+        $partforumsort = "d.timemodified DESC";
     }
     if (empty($fullpost)) {
         $postdata = "p.id,p.subject,p.modified,p.discussion,p.userid";
@@ -2607,9 +2607,9 @@ function partforum_get_discussions($cm, $forumsort="d.timemodified DESC", $fullp
                    JOIN {partforum_posts} p ON p.discussion = d.id
                    JOIN {user} u ON p.userid = u.id
                    $umtable
-             WHERE d.forum = ? AND p.parent = 0
+             WHERE d.partforum = ? AND p.parent = 0
                    $timelimit $groupselect
-          ORDER BY $forumsort";
+          ORDER BY $partforumsort";
     return $DB->get_records_sql($sql, $params, $limitfrom, $limitnum);
 }
 
@@ -2627,14 +2627,14 @@ function partforum_get_discussions_unread($cm) {
     global $CFG, $DB, $USER;
 
     $now = round(time(), -2);
-    $cutoffdate = $now - ($CFG->forum_oldpostdays*24*60*60);
+    $cutoffdate = $now - ($CFG->partforum_oldpostdays*24*60*60);
 
     $params = array();
     $groupmode    = groups_get_activity_groupmode($cm);
     $currentgroup = groups_get_activity_group($cm);
 
     if ($groupmode) {
-        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $modcontext = context_module::instance($cm->id);
 
         if ($groupmode == VISIBLEGROUPS or has_capability('moodle/site:accessallgroups', $modcontext)) {
             if ($currentgroup) {
@@ -2657,7 +2657,7 @@ function partforum_get_discussions_unread($cm) {
         $groupselect = "";
     }
 
-    if (!empty($CFG->forum_enabletimedposts)) {
+    if (!empty($CFG->partforum_enabletimedposts)) {
         $timedsql = "AND d.timestart < :now1 AND (d.timeend = 0 OR d.timeend > :now2)";
         $params['now1'] = $now;
         $params['now2'] = $now;
@@ -2669,7 +2669,7 @@ function partforum_get_discussions_unread($cm) {
               FROM {partforum_discussions} d
                    JOIN {partforum_posts} p     ON p.discussion = d.id
                    LEFT JOIN {partforum_read} r ON (r.postid = p.id AND r.userid = $USER->id)
-             WHERE d.forum = {$cm->instance}
+             WHERE d.partforum = {$cm->instance}
                    AND p.modified >= :cutoffdate AND r.id is NULL
                    $groupselect
                    $timedsql
@@ -2704,7 +2704,7 @@ function partforum_get_discussions_count($cm) {
     $currentgroup = groups_get_activity_group($cm);
 
     if ($groupmode) {
-        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $modcontext = context_module::instance($cm->id);
 
         if ($groupmode == VISIBLEGROUPS or has_capability('moodle/site:accessallgroups', $modcontext)) {
             if ($currentgroup) {
@@ -2727,13 +2727,13 @@ function partforum_get_discussions_count($cm) {
         $groupselect = "";
     }
 
-    $cutoffdate = $now - ($CFG->forum_oldpostdays*24*60*60);
+    $cutoffdate = $now - ($CFG->partforum_oldpostdays*24*60*60);
 
     $timelimit = "";
 
-    if (!empty($CFG->forum_enabletimedposts)) {
+    if (!empty($CFG->partforum_enabletimedposts)) {
 
-        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $modcontext = context_module::instance($cm->id);
 
         if (!has_capability('mod/partforum:viewhiddentimedposts', $modcontext)) {
             $timelimit = " AND ((d.timestart <= ? AND (d.timeend = 0 OR d.timeend > ?))";
@@ -2750,7 +2750,7 @@ function partforum_get_discussions_count($cm) {
     $sql = "SELECT COUNT(d.id)
               FROM {partforum_discussions} d
                    JOIN {partforum_posts} p ON p.discussion = d.id
-             WHERE d.forum = ? AND p.parent = 0
+             WHERE d.partforum = ? AND p.parent = 0
                    $groupselect $timelimit";
 
     return $DB->get_field_sql($sql, $params);
@@ -2780,7 +2780,7 @@ function partforum_get_user_discussions($courseid, $userid, $groupid=0) {
     }
 
     return $DB->get_records_sql("SELECT p.*, d.groupid, u.firstname, u.lastname, u.email, u.picture, u.imagealt,
-                                   f.type as forumtype, f.name as forumname, f.id as forumid
+                                   f.type as partforumtype, f.name as partforumname, f.id as partforumid
                               FROM {partforum_discussions} d,
                                    {partforum_posts} p,
                                    {user} u,
@@ -2790,24 +2790,24 @@ function partforum_get_user_discussions($courseid, $userid, $groupid=0) {
                                AND p.parent = 0
                                AND p.userid = u.id
                                AND u.id = ?
-                               AND d.forum = f.id $groupselect
+                               AND d.partforum = f.id $groupselect
                           ORDER BY p.created DESC", $params);
 }
 
 /**
- * Get the list of potential subscribers to a forum.
+ * Get the list of potential subscribers to a partforum.
  *
- * @param object $forumcontext the forum context.
+ * @param object $partforumcontext the partforum context.
  * @param integer $groupid the id of a group, or 0 for all groups.
  * @param string $fields the list of fields to return for each user. As for get_users_by_capability.
  * @param string $sort sort order. As for get_users_by_capability.
  * @return array list of users.
  */
-function partforum_get_potential_subscribers($forumcontext, $groupid, $fields, $sort) {
+function partforum_get_potential_subscribers($partforumcontext, $groupid, $fields, $sort) {
     global $DB;
 
     // only active enrolled users or everybody on the frontpage with this capability
-    list($esql, $params) = get_enrolled_sql($forumcontext, 'mod/partforum:initialsubscriptions', $groupid, true);
+    list($esql, $params) = get_enrolled_sql($partforumcontext, 'mod/partforum:initialsubscriptions', $groupid, true);
 
     $sql = "SELECT $fields
               FROM {user} u
@@ -2822,18 +2822,18 @@ function partforum_get_potential_subscribers($forumcontext, $groupid, $fields, $
 }
 
 /**
- * Returns list of user objects that are subscribed to this forum
+ * Returns list of user objects that are subscribed to this partforum
  *
  * @global object
  * @global object
  * @param object $course the course
- * @param forum $forum the forum
+ * @param partforum $partforum the partforum
  * @param integer $groupid group id, or 0 for all.
- * @param object $context the forum context, to save re-fetching it where possible.
+ * @param object $context the partforum context, to save re-fetching it where possible.
  * @param string $fields requested user fields (with "u." table prefix)
  * @return array list of users.
  */
-function partforum_subscribed_users($course, $forum, $groupid=0, $context = null, $fields = null) {
+function partforum_subscribed_users($course, $partforum, $groupid=0, $context = null, $fields = null) {
     global $CFG, $DB;
 
     if (empty($fields)) {
@@ -2854,31 +2854,31 @@ function partforum_subscribed_users($course, $forum, $groupid=0, $context = null
                   u.timezone,
                   u.theme,
                   u.lang,
-                  u.trackforums,
+                  u.trackpartforums,
                   u.mnethostid";
     }
 
     if (empty($context)) {
-        $cm = get_coursemodule_from_instance('partforum', $forum->id, $course->id);
-        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $cm = get_coursemodule_from_instance('partforum', $partforum->id, $course->id);
+        $context = context_module::instance($cm->id);
     }
 
-    if (partforum_is_forcesubscribed($forum)) {
+    if (partforum_is_forcesubscribed($partforum)) {
         $results = partforum_get_potential_subscribers($context, $groupid, $fields, "u.email ASC");
 
     } else {
         // only active enrolled users or everybody on the frontpage
         list($esql, $params) = get_enrolled_sql($context, '', $groupid, true);
-        $params['forumid'] = $forum->id;
+        $params['partforumid'] = $partforum->id;
         $results = $DB->get_records_sql("SELECT $fields
                                            FROM {user} u
                                            JOIN ($esql) je ON je.id = u.id
                                            JOIN {partforum_subscriptions} s ON s.userid = u.id
-                                          WHERE s.forum = :forumid
+                                          WHERE s.partforum = :partforumid
                                        ORDER BY u.email ASC", $params);
     }
 
-    // Guest user should never be subscribed to a forum.
+    // Guest user should never be subscribed to a partforum.
     unset($results[$CFG->siteguest]);
 
     return $results;
@@ -2895,61 +2895,61 @@ function partforum_subscribed_users($course, $forum, $groupid=0, $context = null
  * @param int $courseid
  * @param string $type
  */
-function partforum_get_course_forum($courseid, $type) {
-// How to set up special 1-per-course forums
+function partforum_get_course_partforum($courseid, $type) {
+// How to set up special 1-per-course partforums
     global $CFG, $DB, $OUTPUT;
 
-    if ($forums = $DB->get_records_select("partforum", "course = ? AND type = ?", array($courseid, $type), "id ASC")) {
+    if ($partforums = $DB->get_records_select("partforum", "course = ? AND type = ?", array($courseid, $type), "id ASC")) {
         // There should always only be ONE, but with the right combination of
         // errors there might be more.  In this case, just return the oldest one (lowest ID).
-        foreach ($forums as $forum) {
-            return $forum;   // ie the first one
+        foreach ($partforums as $partforum) {
+            return $partforum;   // ie the first one
         }
     }
 
     // Doesn't exist, so create one now.
-    $forum->course = $courseid;
-    $forum->type = "$type";
-    switch ($forum->type) {
+    $partforum->course = $courseid;
+    $partforum->type = "$type";
+    switch ($partforum->type) {
         case "news":
-            $forum->name  = get_string("namenews", "partforum");
-            $forum->intro = get_string("intronews", "partforum");
-            $forum->forcesubscribe = PARTFORUM_FORCESUBSCRIBE;
-            $forum->assessed = 0;
+            $partforum->name  = get_string("namenews", "partforum");
+            $partforum->intro = get_string("intronews", "partforum");
+            $partforum->forcesubscribe = PARTFORUM_FORCESUBSCRIBE;
+            $partforum->assessed = 0;
             if ($courseid == SITEID) {
-                $forum->name  = get_string("sitenews");
-                $forum->forcesubscribe = 0;
+                $partforum->name  = get_string("sitenews");
+                $partforum->forcesubscribe = 0;
             }
             break;
         case "social":
-            $forum->name  = get_string("namesocial", "partforum");
-            $forum->intro = get_string("introsocial", "partforum");
-            $forum->assessed = 0;
-            $forum->forcesubscribe = 0;
+            $partforum->name  = get_string("namesocial", "partforum");
+            $partforum->intro = get_string("introsocial", "partforum");
+            $partforum->assessed = 0;
+            $partforum->forcesubscribe = 0;
             break;
         case "blog":
-            $forum->name = get_string('blogforum', 'partforum');
-            $forum->intro = get_string('introblog', 'partforum');
-            $forum->assessed = 0;
-            $forum->forcesubscribe = 0;
+            $partforum->name = get_string('blogpartforum', 'partforum');
+            $partforum->intro = get_string('introblog', 'partforum');
+            $partforum->assessed = 0;
+            $partforum->forcesubscribe = 0;
             break;
         default:
-            echo $OUTPUT->notification("That forum type doesn't exist!");
+            echo $OUTPUT->notification("That partforum type doesn't exist!");
             return false;
             break;
     }
 
-    $forum->timemodified = time();
-    $forum->id = $DB->insert_record("partforum", $forum);
+    $partforum->timemodified = time();
+    $partforum->id = $DB->insert_record("partforum", $partforum);
 
     if (! $module = $DB->get_record("modules", array("name" => "partforum"))) {
-        echo $OUTPUT->notification("Could not find forum module!!");
+        echo $OUTPUT->notification("Could not find partforum module!!");
         return false;
     }
     $mod = new stdClass();
     $mod->course = $courseid;
     $mod->module = $module->id;
-    $mod->instance = $forum->id;
+    $mod->instance = $partforum->id;
     $mod->section = 0;
     if (! $mod->coursemodule = add_course_module($mod) ) {   // assumes course/lib.php is loaded
         echo $OUTPUT->notification("Could not add a new course module to the course '" . $courseid . "'");
@@ -2964,7 +2964,7 @@ function partforum_get_course_forum($courseid, $type) {
     include_once("$CFG->dirroot/course/lib.php");
     rebuild_course_cache($courseid);
 
-    return $DB->get_record("partforum", array("id" => "$forum->id"));
+    return $DB->get_record("partforum", array("id" => "$partforum->id"));
 }
 
 
@@ -2975,7 +2975,7 @@ function partforum_get_course_forum($courseid, $type) {
  * @global object
  * @param object $course
  * @param object $cm
- * @param object $forum
+ * @param object $partforum
  * @param object $discussion
  * @param object $post
  * @param object $userform
@@ -2987,17 +2987,17 @@ function partforum_get_course_forum($courseid, $type) {
  * @param string $footer
  * @return string
  */
-function partforum_make_mail_post($course, $cm, $forum, $discussion, $post, $userfrom, $userto,
+function partforum_make_mail_post($course, $cm, $partforum, $discussion, $post, $userfrom, $userto,
                               $ownpost=false, $reply=false, $link=false, $rate=false, $footer="") {
 
     global $CFG, $OUTPUT;
 
-    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $modcontext = context_module::instance($cm->id);
 
-    if (!isset($userto->viewfullnames[$forum->id])) {
+    if (!isset($userto->viewfullnames[$partforum->id])) {
         $viewfullnames = has_capability('moodle/site:viewfullnames', $modcontext, $userto->id);
     } else {
-        $viewfullnames = $userto->viewfullnames[$forum->id];
+        $viewfullnames = $userto->viewfullnames[$partforum->id];
     }
 
     // add absolute file links
@@ -3008,7 +3008,7 @@ function partforum_make_mail_post($course, $cm, $forum, $discussion, $post, $use
     $options->para = true;
     $formattedtext = format_text($post->message, $post->messageformat, $options, $course->id);
 
-    $output = '<table border="0" cellpadding="3" cellspacing="0" class="forumpost">';
+    $output = '<table border="0" cellpadding="3" cellspacing="0" class="partforumpost">';
 
     $output .= '<tr class="header"><td width="35" valign="top" class="picture left">';
     $output .= $OUTPUT->user_picture($userfrom, array('courseid'=>$course->id));
@@ -3032,7 +3032,7 @@ function partforum_make_mail_post($course, $cm, $forum, $discussion, $post, $use
     $output .= '<tr><td class="left side" valign="top">';
 
     if (isset($userfrom->groups)) {
-        $groups = $userfrom->groups[$forum->id];
+        $groups = $userfrom->groups[$partforum->id];
     } else {
         $groups = groups_get_all_groups($course->id, $userfrom->id, $cm->groupingid);
     }
@@ -3088,7 +3088,7 @@ function partforum_make_mail_post($course, $cm, $forum, $discussion, $post, $use
 }
 
 /**
- * Print a forum post
+ * Print a partforum post
  *
  * @global object
  * @global object
@@ -3100,7 +3100,7 @@ function partforum_make_mail_post($course, $cm, $forum, $discussion, $post, $use
  * @uses CONTEXT_MODULE
  * @param object $post The post to print.
  * @param object $discussion
- * @param object $forum
+ * @param object $partforum
  * @param object $cm
  * @param object $course
  * @param boolean $ownpost Whether this post belongs to the current user.
@@ -3111,26 +3111,28 @@ function partforum_make_mail_post($course, $cm, $forum, $discussion, $post, $use
  * @param int $post_read true, false or -99. If we already know whether this user
  *          has read this post, pass that in, otherwise, pass in -99, and this
  *          function will work it out.
- * @param boolean $dummyifcantsee When forum_user_can_see_post says that
+ * @param boolean $dummyifcantsee When partforum_user_can_see_post says that
  *          the current user can't see this post, if this argument is true
  *          (the default) then print a dummy 'you can't see this post' post.
  *          If false, don't output anything at all.
  * @param bool|null $istracked
  * @return void
  */
-function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpost=false, $reply=false, $link=false,
+function partforum_print_post($post, $discussion, $partforum, &$cm, $course, $ownpost=false, $reply=false, $link=false,
                           $footer="", $highlight="", $postisread=null, $dummyifcantsee=true, $istracked=null, $return=false) {
-    global $USER, $CFG, $OUTPUT;
+    global $USER, $CFG, $OUTPUT, $DB;
 
     require_once($CFG->libdir . '/filelib.php');
+
 
     // String cache
     static $str;
 
-    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $modcontext = context_module::instance($cm->id);
+
 
     $post->course = $course->id;
-    $post->forum  = $forum->id;
+    $post->partforum  = $partforum->id;
     $post->message = file_rewrite_pluginfile_urls($post->message, 'pluginfile.php', $modcontext->id, 'mod_partforum', 'post', $post->id);
 
     // caching
@@ -3152,14 +3154,16 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
     }
 
     if (!isset($cm->uservisible)) {
-        $cm->uservisible = coursemodule_visible_for_user($cm);
+	// updated on 20151026 by Murphy
+        // $cm->uservisible = coursemodule_visible_for_user($cm);
+	$cm->uservisible = \core_availability\info_module::is_user_visible($cm, 0, false);
     }
 
     if ($istracked && is_null($postisread)) {
         $postisread = partforum_tp_is_post_read($USER->id, $post);
     }
 
-    if (!partforum_user_can_see_post($forum, $discussion, $post, NULL, $cm)) {
+    if (!partforum_user_can_see_post($partforum, $discussion, $post, NULL, $cm)) {
         $output = '';
         if (!$dummyifcantsee) {
             if ($return) {
@@ -3169,7 +3173,7 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
             return;
         }
         $output .= html_writer::tag('a', '', array('id'=>'p'.$post->id));
-        $output .= html_writer::start_tag('div', array('class'=>'forumpost clearfix'));
+        $output .= html_writer::start_tag('div', array('class'=>"forumpost clearfix "));
         $output .= html_writer::start_tag('div', array('class'=>'row header'));
         $output .= html_writer::tag('div', '', array('class'=>'left picture')); // Picture
         if ($post->parent) {
@@ -3177,15 +3181,15 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
         } else {
             $output .= html_writer::start_tag('div', array('class'=>'topic starter'));
         }
-        $output .= html_writer::tag('div', get_string('forumsubjecthidden','partforum'), array('class'=>'subject')); // Subject
-        $output .= html_writer::tag('div', get_string('forumauthorhidden','partforum'), array('class'=>'author')); // author
+        $output .= html_writer::tag('div', get_string('partforumsubjecthidden','partforum'), array('class'=>'subject')); // Subject
+        $output .= html_writer::tag('div', get_string('partforumauthorhidden','partforum'), array('class'=>'author')); // author
         $output .= html_writer::end_tag('div');
         $output .= html_writer::end_tag('div'); // row
         $output .= html_writer::start_tag('div', array('class'=>'row'));
         $output .= html_writer::tag('div', '&nbsp;', array('class'=>'left side')); // Groups
-        $output .= html_writer::tag('div', get_string('forumbodyhidden','partforum'), array('class'=>'content')); // Content
+        $output .= html_writer::tag('div', get_string('partforumbodyhidden','partforum'), array('class'=>'content')); // Content
         $output .= html_writer::end_tag('div'); // row
-        $output .= html_writer::end_tag('div'); // forumpost
+        $output .= html_writer::end_tag('div'); // partforumpost
 
         if ($return) {
             return $output;
@@ -3202,7 +3206,7 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
         $str->parent       = get_string('parent', 'partforum');
         $str->pruneheading = get_string('pruneheading', 'partforum');
         $str->prune        = get_string('prune', 'partforum');
-        $str->displaymode     = get_user_preferences('forum_displaymode', $CFG->forum_displaymode);
+        $str->displaymode     = get_user_preferences('partforum_displaymode', $CFG->forum_displaymode);
         $str->markread     = get_string('markread', 'partforum');
         $str->markunread   = get_string('markunread', 'partforum');
     }
@@ -3211,12 +3215,16 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
 
     // Build an object that represents the posting user
     $postuser = new stdClass;
+    //----updated by hema
     $postuser->id        = $post->userid;
-    $postuser->firstname = $post->firstname;
-    $postuser->lastname  = $post->lastname;
-    $postuser->imagealt  = $post->imagealt;
-    $postuser->picture   = $post->picture;
-    $postuser->email     = $post->email;
+    $postuserfields = explode(',', user_picture::fields());
+    $postuser = username_load_fields_from_object($postuser, $post, null, $postuserfields);
+    //$postuser->firstname = $post->firstname;
+    //$postuser->lastname  = $post->lastname;
+    //$postuser->imagealt  = $post->imagealt;
+    //$postuser->picture   = $post->picture;
+    //$postuser->email     = $post->email;
+
     // Some handy things for later on
     $postuser->fullname    = fullname($postuser, $cm->cache->caps['moodle/site:viewfullnames']);
     $postuser->profilelink = new moodle_url('/user/view.php', array('id'=>$post->userid, 'course'=>$course->id));
@@ -3237,7 +3245,7 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
     list($attachments, $attachedimages) = partforum_print_attachments($post, $cm, 'separateimages');
 
     // Determine if we need to shorten this post
-    $shortenpost = ($link && (strlen(strip_tags($post->message)) > $CFG->forum_longpost));
+    $shortenpost = ($link && (strlen(strip_tags($post->message)) > $CFG->partforum_longpost));
 
 
     // Prepare an array of commands
@@ -3245,7 +3253,7 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
 
     // SPECIAL CASE: The front page can display a news item post to non-logged in users.
     // Don't display the mark read / unread controls in this case.
-    if ($istracked && $CFG->forum_usermarksread && isloggedin()) {
+    if ($istracked && $CFG->partforum_usermarksread && isloggedin()) {
         $url = new moodle_url($discussionlink, array('postid'=>$post->id, 'mark'=>'unread'));
         $text = $str->markunread;
         if (!$postisread) {
@@ -3270,17 +3278,23 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
         }
         $commands[] = array('url'=>$url, 'text'=>$str->parent);
     }
+    
+    // hiding all replies of a specific post
+    if( $DB->record_exists_sql("select * from {partforum_posts} where parent=$post->id") && $CFG->partforum_enablehidelink){        
+        $commands[] = array('url'=>'javascript:void(0)','text'=>"<span id=hide_rply_$post->id  onclick=hide_all_replies($post->id)>". get_string('hidethisspecificpost_reply','partforum')."</span>", 'onclick'=>"hide all replies($post->id)");        
+    }
+    
 
     // Hack for allow to edit news posts those are not displayed yet until they are displayed
     $age = time() - $post->created;
-    if (!$post->parent && $forum->type == 'news' && $discussion->timestart > time()) {
+    if (!$post->parent && $partforum->type == 'news' && $discussion->timestart > time()) {
         $age = 0;
     }
     if (($ownpost && $age < $CFG->maxeditingtime) || $cm->cache->caps['mod/partforum:editanypost']) {
         $commands[] = array('url'=>new moodle_url('/mod/partforum/post.php', array('edit'=>$post->id)), 'text'=>$str->edit);
     }
 
-    if ($cm->cache->caps['mod/partforum:splitdiscussions'] && $post->parent && $forum->type != 'single') {
+    if ($cm->cache->caps['mod/partforum:splitdiscussions'] && $post->parent && $partforum->type != 'single') {
         $commands[] = array('url'=>new moodle_url('/mod/partforum/post.php', array('prune'=>$post->id)), 'text'=>$str->prune, 'title'=>$str->pruneheading);
     }
 
@@ -3310,21 +3324,26 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
     }
     // Finished building commands
 
+    global $PAGE;
 
+    $PAGE->requires->js('/mod/partforum/js/partforum_custom.js');
+    
+    if($CFG->partforum_enabletoggle_forallposts)
+    $PAGE->requires->js_init_call('partforum_post_toggle', array($post->id));
     // Begin output
 
     $output  = '';
 
     if ($istracked) {
         if ($postisread) {
-            $forumpostclass = ' read';
+            $partforumpostclass = ' read';
         } else {
-            $forumpostclass = ' unread';
+            $partforumpostclass = ' unread';
             $output .= html_writer::tag('a', '', array('name'=>'unread'));
         }
     } else {
         // ignore trackign status if not tracked or tracked param missing
-        $forumpostclass = '';
+        $partforumpostclass = '';
     }
 
     $topicclass = '';
@@ -3333,8 +3352,9 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
     }
 
     $output .= html_writer::tag('a', '', array('id'=>'p'.$post->id));
-    $output .= html_writer::start_tag('div', array('class'=>'forumpost clearfix'.$forumpostclass.$topicclass));
-    $output .= html_writer::start_tag('div', array('class'=>'row header clearfix'));
+    $output .= html_writer::start_tag('div', array('class'=>"forumpost clearfix$partforumpostclass.$topicclass hide_all_reply$post->parent"));
+    $output .= html_writer::start_tag('div', array('class'=>"row header clearfix",'id'=>'header_partforum'.$post->id));
+    
     $output .= html_writer::start_tag('div', array('class'=>'left picture'));
     $output .= $OUTPUT->user_picture($postuser, array('courseid'=>$course->id));
     $output .= html_writer::end_tag('div');
@@ -3351,12 +3371,21 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
     $by = new stdClass();
     $by->name = html_writer::link($postuser->profilelink, $postuser->fullname);
     $by->date = userdate($post->modified);
-    $output .= html_writer::tag('div', get_string('bynameondate', 'partforum', $by), array('class'=>'author'));
+    
+    if($CFG->partforum_enabletoggle_forallposts)
+    $style='float:left';
+    else
+    $style='';
+    
+    $output .= html_writer::tag('div', get_string('bynameondate', 'partforum', $by), array('class'=>'author','id'=>'partforum_author','style'=>$style));
+    
+    if($CFG->partforum_enabletoggle_forallposts)
+    $output .= '<div id=partform_img'.$post->id.'><img src="'.$OUTPUT->pix_url('t/expanded') . '"  /></div>';
 
     $output .= html_writer::end_tag('div'); //topic
     $output .= html_writer::end_tag('div'); //row
 
-    $output .= html_writer::start_tag('div', array('class'=>'row maincontent clearfix'));
+    $output .= html_writer::start_tag('div', array('class'=>"row maincontent clearfix ",'id'=>'row_partforum_maincontent'.$post->id));
     $output .= html_writer::start_tag('div', array('class'=>'left'));
 
     $groupoutput = '';
@@ -3379,10 +3408,43 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
     $options->para    = false;
     $options->trusted = $post->messagetrust;
     $options->context = $modcontext;
+    // print_object($post);
+    
+    //----------- based on the settings enabling link(updated by hema)----------------------
+    //if((isset($post->partforumtype)) && $post->partforumtype=='participation'){
+    if( $post->parent==0){
+        if($partforum->assesstimefinish==0)
+           $post->message .= get_string('partforum_baselineswithoutdates','partforum');
+        else
+           $post->message .= get_string('partforum_instructions_baselines','partforum',userdate($partforum->assesstimefinish, get_string('strftimedate', 'langconfig'))); 
+
+        $enablepopup=(isset($CFG->partforum_enablepopup)?$CFG->partforum_enablepopup:0);
+        
+      //----rating image popup-----------------------------------------------------  
+        $imagesrc=$OUTPUT->pix_url('partforum_rating','partforum');
+                       //$PAGE->requires->event_handler('.partforum_rating_img', 'click', 'show_instruction_dialog',
+                       // array('message' => "<img id='partform_img' src=$imagesrc />",'heading'=>get_string('graph_heading','partforum'))); 
+        
+        if($enablepopup <=0){    
+              //$post->message .=get_string('partforum_instructions','partforum',userdate($partforum->assesstimefinish,get_string('strftimedate', 'langconfig')));
+              $post->message .= $CFG->partforum_instructions;
+        } 
+        else{    
+            //$PAGE->requires->string_for_js('popup_heading', 'partforum');
+            $post->message .=get_string('partforum_instructions_link','partforum',$post->id);
+                        $PAGE->requires->event_handler('.partforum_instrction_link'.$post->id, 'click', 'show_instruction_dialog',
+                        array('message' => $CFG->partforum_instructions,'heading'=>get_string('popup_heading','partforum')));
+                        
+                        
+                            
+        }
+    } // end of if condition
+    //------------------------------------------------------------------------    
+
     if ($shortenpost) {
         // Prepare shortened version
         $postclass    = 'shortenedpost';
-        $postcontent  = format_text(partforum_shorten_post($post->message), $post->messageformat, $options, $course->id);
+       $postcontent  = format_text(partforum_shorten_post($post->message), $post->messageformat, $options, $course->id);
         $postcontent .= html_writer::link($discussionlink, get_string('readtherest', 'partforum'));
         $postcontent .= html_writer::tag('span', '('.get_string('numwords', 'moodle', count_words(strip_tags($post->message))).')...', array('class'=>'post-word-count'));
     } else {
@@ -3402,13 +3464,15 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
 
     $output .= html_writer::start_tag('div', array('class'=>'row side'));
     $output .= html_writer::tag('div','&nbsp;', array('class'=>'left'));
-    $output .= html_writer::start_tag('div', array('class'=>'options clearfix'));
+    $output .= html_writer::start_tag('div', array('class'=>"options clearfix"));
 
     // Output ratings
     if (!empty($post->rating)) {
-        $output .= html_writer::tag('div', $OUTPUT->render($post->rating), array('class'=>'forum-post-rating'));
-    }
-
+        $output .= html_writer::tag('div', $OUTPUT->render($post->rating), array('class'=>'partforum-post-rating'));
+    }   
+    
+    //print_object($commands);
+    
     // Output the commands
     $commandhtml = array();
     foreach ($commands as $command) {
@@ -3418,7 +3482,7 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
             $commandhtml[] = $command;
         }
     }
-    $output .= html_writer::tag('div', implode(' | ', $commandhtml), array('class'=>'commands'));
+    $output .= html_writer::tag('div', implode(' | ', $commandhtml), array('class'=>'commands','id'=>'partforum_actions_button'));
 
     // Output link to post if required
     if ($link) {
@@ -3434,6 +3498,8 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
         $output .= html_writer::end_tag('div'); // link
     }
 
+    
+
     // Output footer if required
     if ($footer) {
         $output .= html_writer::tag('div', $footer, array('class'=>'footer'));
@@ -3441,12 +3507,13 @@ function partforum_print_post($post, $discussion, $forum, &$cm, $course, $ownpos
 
     // Close remaining open divs
     $output .= html_writer::end_tag('div'); // content
-    $output .= html_writer::end_tag('div'); // row
-    $output .= html_writer::end_tag('div'); // forumpost
 
-    // Mark the forum post as read if required
-    if ($istracked && !$CFG->forum_usermarksread && !$postisread) {
-        partforum_tp_mark_post_read($USER->id, $post, $forum->id);
+    $output .= html_writer::end_tag('div'); // row
+    $output .= html_writer::end_tag('div'); // partforumpost
+
+    // Mark the partforum post as read if required
+    if ($istracked && !$CFG->partforum_usermarksread && !$postisread) {
+        partforum_tp_mark_post_read($USER->id, $post, $partforum->id);
     }
 
     if ($return) {
@@ -3481,7 +3548,7 @@ function partforum_rating_permissions($contextid, $component, $ratingarea) {
  * Validates a submitted rating
  * @param array $params submitted data
  *            context => object the context in which the rated items exists [required]
- *            component => The component for this module - should always be mod_forum [required]
+ *            component => The component for this module - should always be mod_partforum [required]
  *            ratingarea => object the context in which the rated items exists [required]
  *            itemid => int the ID of the object being rated [required]
  *            scaleid => int the scale from which the user can select a rating. Used for bounds checking. [required]
@@ -3493,12 +3560,12 @@ function partforum_rating_permissions($contextid, $component, $ratingarea) {
 function partforum_rating_validate($params) {
     global $DB, $USER;
 
-    // Check the component is mod_forum
+    // Check the component is mod_partforum
     if ($params['component'] != 'mod_partforum') {
         throw new rating_exception('invalidcomponent');
     }
 
-    // Check the ratingarea is post (the only rating area in forum)
+    // Check the ratingarea is post (the only rating area in partforum)
     if ($params['ratingarea'] != 'post') {
         throw new rating_exception('invalidratingarea');
     }
@@ -3508,27 +3575,27 @@ function partforum_rating_validate($params) {
         throw new rating_exception('nopermissiontorate');
     }
 
-    // Fetch all the related records ... we need to do this anyway to call forum_user_can_see_post
+    // Fetch all the related records ... we need to do this anyway to call partforum_user_can_see_post
     $post = $DB->get_record('partforum_posts', array('id' => $params['itemid'], 'userid' => $params['rateduserid']), '*', MUST_EXIST);
     $discussion = $DB->get_record('partforum_discussions', array('id' => $post->discussion), '*', MUST_EXIST);
-    $forum = $DB->get_record('partforum', array('id' => $discussion->forum), '*', MUST_EXIST);
-    $course = $DB->get_record('course', array('id' => $forum->course), '*', MUST_EXIST);
-    $cm = get_coursemodule_from_instance('partforum', $forum->id, $course->id , false, MUST_EXIST);
-    $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $partforum = $DB->get_record('partforum', array('id' => $discussion->partforum), '*', MUST_EXIST);
+    $course = $DB->get_record('course', array('id' => $partforum->course), '*', MUST_EXIST);
+    $cm = get_coursemodule_from_instance('partforum', $partforum->id, $course->id , false, MUST_EXIST);
+    $context = context_module::instance($cm->id);
 
-    // Make sure the context provided is the context of the forum
+    // Make sure the context provided is the context of the partforum
     if ($context->id != $params['context']->id) {
         throw new rating_exception('invalidcontext');
     }
 
-    if ($forum->scale != $params['scaleid']) {
+    if ($partforum->scale != $params['scaleid']) {
         //the scale being submitted doesnt match the one in the database
         throw new rating_exception('invalidscaleid');
     }
 
     // check the item we're rating was created in the assessable time window
-    if (!empty($forum->assesstimestart) && !empty($forum->assesstimefinish)) {
-        if ($post->created < $forum->assesstimestart || $post->created > $forum->assesstimefinish) {
+    if (!empty($partforum->assesstimestart) && !empty($partforum->assesstimefinish)) {
+        if ($post->created < $partforum->assesstimestart || $post->created > $partforum->assesstimefinish) {
             throw new rating_exception('notavailable');
         }
     }
@@ -3541,9 +3608,9 @@ function partforum_rating_validate($params) {
     }
 
     // upper limit
-    if ($forum->scale < 0) {
+    if ($partforum->scale < 0) {
         //its a custom scale
-        $scalerecord = $DB->get_record('scale', array('id' => -$forum->scale));
+        $scalerecord = $DB->get_record('scale', array('id' => -$partforum->scale));
         if ($scalerecord) {
             $scalearray = explode(',', $scalerecord->scale);
             if ($params['rating'] > count($scalearray)) {
@@ -3552,7 +3619,7 @@ function partforum_rating_validate($params) {
         } else {
             throw new rating_exception('invalidscaleid');
         }
-    } else if ($params['rating'] > $forum->scale) {
+    } else if ($params['rating'] > $partforum->scale) {
         //if its numeric and submitted rating is above maximum
         throw new rating_exception('invalidnum');
     }
@@ -3570,7 +3637,7 @@ function partforum_rating_validate($params) {
     }
 
     // perform some final capability checks
-    if (!partforum_user_can_see_post($forum, $discussion, $post, $USER, $cm)) {
+    if (!partforum_user_can_see_post($partforum, $discussion, $post, $USER, $cm)) {
         throw new rating_exception('nopermissiontorate');
     }
 
@@ -3579,23 +3646,23 @@ function partforum_rating_validate($params) {
 
 
 /**
- * This function prints the overview of a discussion in the forum listing.
+ * This function prints the overview of a discussion in the partforum listing.
  * It needs some discussion information and some post information, these
  * happen to be combined for efficiency in the $post parameter by the function
- * that calls this one: forum_print_latest_discussions()
+ * that calls this one: partforum_print_latest_discussions()
  *
  * @global object
  * @global object
  * @param object $post The post object (passed by reference for speed).
- * @param object $forum The forum object.
+ * @param object $partforum The partforum object.
  * @param int $group Current group.
  * @param string $datestring Format to use for the dates.
- * @param boolean $cantrack Is tracking enabled for this forum.
- * @param boolean $forumtracked Is the user tracking this forum.
+ * @param boolean $cantrack Is tracking enabled for this partforum.
+ * @param boolean $partforumtracked Is the user tracking this partforum.
  * @param boolean $canviewparticipants True if user has the viewparticipants permission for this course
  */
-function partforum_print_discussion_header(&$post, $forum, $group=-1, $datestring="",
-                                        $cantrack=true, $forumtracked=true, $canviewparticipants=true, $modcontext=NULL) {
+function partforum_print_discussion_header(&$post, $partforum, $group=-1, $datestring="",
+                                        $cantrack=true, $partforumtracked=true, $canviewparticipants=true, $modcontext=NULL) {
 
     global $USER, $CFG, $OUTPUT;
 
@@ -3603,10 +3670,10 @@ function partforum_print_discussion_header(&$post, $forum, $group=-1, $datestrin
     static $strmarkalldread;
 
     if (empty($modcontext)) {
-        if (!$cm = get_coursemodule_from_instance('partforum', $forum->id, $forum->course)) {
+        if (!$cm = get_coursemodule_from_instance('partforum', $partforum->id, $partforum->course)) {
             print_error('invalidcoursemodule');
         }
-        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $modcontext = context_module::instance($cm->id);
     }
 
     if (!isset($rowcount)) {
@@ -3626,33 +3693,44 @@ function partforum_print_discussion_header(&$post, $forum, $group=-1, $datestrin
     echo '<a href="'.$CFG->wwwroot.'/mod/partforum/discuss.php?d='.$post->discussion.'">'.$post->subject.'</a>';
     echo "</td>\n";
 
-    // Picture
-    $postuser = new stdClass();
-    $postuser->id = $post->userid;
-    $postuser->firstname = $post->firstname;
-    $postuser->lastname = $post->lastname;
-    $postuser->imagealt = $post->imagealt;
-    $postuser->picture = $post->picture;
-    $postuser->email = $post->email;
+    // Picture old code
+   // $postuser = new stdClass();
+  
+    //$postuser->id = $post->userid;
+    //$postuser->firstname = $post->firstname;
+    //$postuser->lastname = $post->lastname;
+    //$postuser->imagealt = $post->imagealt;
+    //$postuser->picture = $post->picture;
+    //$postuser->email = $post->email;
+    // $postuserfields = explode(',', user_picture::fields());
+    //$postuser = username_load_fields_from_object($postuser, $post, null, $postuserfields);
 
+     // Picture updated by hema
+    $postuser = new stdClass();
+    $postuserfields = explode(',', user_picture::fields());
+    $postuser = username_load_fields_from_object($postuser, $post, null, $postuserfields);
+    $postuser->id = $post->userid;  
+    
     echo '<td class="picture">';
-    echo $OUTPUT->user_picture($postuser, array('courseid'=>$forum->course));
+    echo $OUTPUT->user_picture($postuser, array('courseid'=>$partforum->course));
     echo "</td>\n";
 
     // User name
-    $fullname = fullname($post, has_capability('moodle/site:viewfullnames', $modcontext));
+    
+   // $fullname = fullname($postuser, has_capability('moodle/site:viewfullnames', $modcontext));
+    $fullname = fullname($postuser, has_capability('moodle/site:viewfullnames', $modcontext));
     echo '<td class="author">';
-    echo '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$post->userid.'&amp;course='.$forum->course.'">'.$fullname.'</a>';
+    echo '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$post->userid.'&amp;course='.$partforum->course.'">'.$fullname.'</a>';
     echo "</td>\n";
 
     // Group picture
     if ($group !== -1) {  // Groups are active - group is a group data object or NULL
         echo '<td class="picture group">';
         if (!empty($group->picture) and empty($group->hidepicture)) {
-            print_group_picture($group, $forum->course, false, false, true);
+            print_group_picture($group, $partforum->course, false, false, true);
         } else if (isset($group->id)) {
             if($canviewparticipants) {
-                echo '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$forum->course.'&amp;group='.$group->id.'">'.$group->name.'</a>';
+                echo '<a href="'.$CFG->wwwroot.'/user/index.php?id='.$partforum->course.'&amp;group='.$group->id.'">'.$group->name.'</a>';
             } else {
                 echo $group->name;
             }
@@ -3668,14 +3746,14 @@ function partforum_print_discussion_header(&$post, $forum, $group=-1, $datestrin
 
         if ($cantrack) {
             echo '<td class="replies">';
-            if ($forumtracked) {
+            if ($partforumtracked) {
                 if ($post->unread > 0) {
                     echo '<span class="unread">';
                     echo '<a href="'.$CFG->wwwroot.'/mod/partforum/discuss.php?d='.$post->discussion.'#unread">';
                     echo $post->unread;
                     echo '</a>';
                     echo '<a title="'.$strmarkalldread.'" href="'.$CFG->wwwroot.'/mod/partforum/markposts.php?f='.
-                         $forum->id.'&amp;d='.$post->discussion.'&amp;mark=read&amp;returnpage=view.php">' .
+                         $partforum->id.'&amp;d='.$post->discussion.'&amp;mark=read&amp;returnpage=view.php">' .
                          '<img src="'.$OUTPUT->pix_url('t/clear') . '" class="iconsmall" alt="'.$strmarkalldread.'" /></a>';
                     echo '</span>';
                 } else {
@@ -3699,7 +3777,9 @@ function partforum_print_discussion_header(&$post, $forum, $group=-1, $datestrin
     $usermodified->id        = $post->usermodified;
     $usermodified->firstname = $post->umfirstname;
     $usermodified->lastname  = $post->umlastname;
-    echo '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$post->usermodified.'&amp;course='.$forum->course.'">'.
+    //----- added new functions by hema
+    $usermodified = username_load_fields_from_object($usermodified, $post,'um');
+    echo '<a href="'.$CFG->wwwroot.'/user/view.php?id='.$post->usermodified.'&amp;course='.$partforum->course.'">'.
          fullname($usermodified).'</a><br />';
     echo '<a href="'.$CFG->wwwroot.'/mod/partforum/discuss.php?d='.$post->discussion.$parenturl.'">'.
           userdate($usedate, $datestring).'</a>';
@@ -3713,7 +3793,7 @@ function partforum_print_discussion_header(&$post, $forum, $group=-1, $datestrin
 /**
  * Given a post object that we already know has a long message
  * this function truncates the message nicely to the first
- * sane place between $CFG->forum_longpost and $CFG->forum_shortpost
+ * sane place between $CFG->partforum_longpost and $CFG->partforum_shortpost
  *
  * @global object
  * @param string $message
@@ -3753,7 +3833,7 @@ function partforum_shorten_post($message) {
                break;
        }
        if (!$stopzone) {
-           if ($count > $CFG->forum_shortpost) {
+           if ($count > $CFG->partforum_shortpost) {
                $stopzone = true;
            }
        }
@@ -3770,16 +3850,16 @@ function partforum_shorten_post($message) {
  * Print the drop down that allows the user to select how they want to have
  * the discussion displayed.
  *
- * @param int $id forum id if $forumtype is 'single',
- *              discussion id for any other forum type
- * @param mixed $mode forum layout mode
- * @param string $forumtype optional
+ * @param int $id partforum id if $partforumtype is 'single',
+ *              discussion id for any other partforum type
+ * @param mixed $mode partforum layout mode
+ * @param string $partforumtype optional
  */
-function partforum_print_mode_form($id, $mode, $forumtype='') {
+function partforum_print_mode_form($id, $mode, $partforumtype='') {
     global $OUTPUT;
-    if ($forumtype == 'single') {
+    if ($partforumtype == 'single') {
         $select = new single_select(new moodle_url("/mod/partforum/view.php", array('f'=>$id)), 'mode', partforum_get_layout_modes(), $mode, null, "mode");
-        $select->class = "forummode";
+        $select->class = "partforummode";
     } else {
         $select = new single_select(new moodle_url("/mod/partforum/discuss.php", array('d'=>$id)), 'mode', partforum_get_layout_modes(), $mode, null, "mode");
     }
@@ -3795,14 +3875,14 @@ function partforum_print_mode_form($id, $mode, $forumtype='') {
 function partforum_search_form($course, $search='') {
     global $CFG, $OUTPUT;
 
-    $output  = '<div class="forumsearch">';
+    $output  = '<div class="partforumsearch">';
     $output .= '<form action="'.$CFG->wwwroot.'/mod/partforum/search.php" style="display:inline">';
     $output .= '<fieldset class="invisiblefieldset">';
     $output .= $OUTPUT->help_icon('search');
     $output .= '<label class="accesshide" for="search" >'.get_string('search', 'partforum').'</label>';
     $output .= '<input id="search" name="search" type="text" size="18" value="'.s($search, true).'" alt="search" />';
-    $output .= '<label class="accesshide" for="searchforums" >'.get_string('searchforums', 'partforum').'</label>';
-    $output .= '<input id="searchforums" value="'.get_string('searchforums', 'partforum').'" type="submit" />';
+    $output .= '<label class="accesshide" for="searchpartforums" >'.get_string('searchpartforums', 'partforum').'</label>';
+    $output .= '<input id="searchpartforums" value="'.get_string('searchpartforums', 'partforum').'" type="submit" />';
     $output .= '<input name="id" type="hidden" value="'.$course->id.'" />';
     $output .= '</fieldset>';
     $output .= '</form>';
@@ -3851,27 +3931,30 @@ function partforum_go_back_to($default) {
 }
 
 /**
- * Given a discussion object that is being moved to $forumto,
+ * Given a discussion object that is being moved to $partforumto,
  * this function checks all posts in that discussion
  * for attachments, and if any are found, these are
- * moved to the new forum directory.
+ * moved to the new partforum directory.
  *
  * @global object
  * @param object $discussion
- * @param int $forumfrom source forum id
- * @param int $forumto target forum id
+ * @param int $partforumfrom source partforum id
+ * @param int $partforumto target partforum id
  * @return bool success
  */
-function partforum_move_attachments($discussion, $forumfrom, $forumto) {
+function partforum_move_attachments($discussion, $partforumfrom, $partforumto) {
     global $DB;
 
     $fs = get_file_storage();
 
-    $newcm = get_coursemodule_from_instance('partforum', $forumto);
-    $oldcm = get_coursemodule_from_instance('partforum', $forumfrom);
+    $newcm = get_coursemodule_from_instance('partforum', $partforumto);
+    $oldcm = get_coursemodule_from_instance('partforum', $partforumfrom);
 
-    $newcontext = get_context_instance(CONTEXT_MODULE, $newcm->id);
-    $oldcontext = get_context_instance(CONTEXT_MODULE, $oldcm->id);
+    $newcontext = context_module::instance($newcm->id);
+    $oldcontext = context_module::instance($oldcm->id);
+    
+  //  $newcontext = get_context_instance(CONTEXT_MODULE, $newcm->id);
+  //  $oldcontext = get_context_instance(CONTEXT_MODULE, $oldcm->id);
 
     // loop through all posts, better not use attachment flag ;-)
     if ($posts = $DB->get_records('partforum_posts', array('discussion'=>$discussion->id), '', 'id, attachment')) {
@@ -3917,7 +4000,7 @@ function partforum_print_attachments($post, $cm, $type) {
         return $type !== 'separateimages' ? '' : array('', '');
     }
 
-    if (!$context = get_context_instance(CONTEXT_MODULE, $cm->id)) {
+    if (!$context = context_module::instance($cm->id)) {
         return $type !== 'separateimages' ? '' : array('', '');
     }
     $strattachment = get_string('attachment', 'partforum');
@@ -4002,7 +4085,7 @@ function partforum_get_file_areas($course, $cm, $context) {
 }
 
 /**
- * Serves the forum attachments. Implements needed access control ;-)
+ * Serves the partforum attachments. Implements needed access control ;-)
  *
  * @param object $course
  * @param object $cm
@@ -4036,7 +4119,7 @@ function partforum_pluginfile($course, $cm, $context, $filearea, $args, $forcedo
         return false;
     }
 
-    if (!$forum = $DB->get_record('partforum', array('id'=>$cm->instance))) {
+    if (!$partforum = $DB->get_record('partforum', array('id'=>$cm->instance))) {
         return false;
     }
 
@@ -4060,7 +4143,7 @@ function partforum_pluginfile($course, $cm, $context, $filearea, $args, $forcedo
     }
 
     // Make sure we're allowed to see it...
-    if (!partforum_user_can_see_post($forum, $discussion, $post, NULL, $cm)) {
+    if (!partforum_user_can_see_post($partforum, $discussion, $post, NULL, $cm)) {
         return false;
     }
 
@@ -4073,14 +4156,14 @@ function partforum_pluginfile($course, $cm, $context, $filearea, $args, $forcedo
  * If successful, this function returns the name of the file
  *
  * @global object
- * @param object $post is a full post record, including course and forum
- * @param object $forum
+ * @param object $post is a full post record, including course and partforum
+ * @param object $partforum
  * @param object $cm
  * @param mixed $mform
  * @param string $message
  * @return bool
  */
-function partforum_add_attachment($post, $forum, $cm, $mform=null, &$message=null) {
+function partforum_add_attachment($post, $partforum, $cm, $mform=null, &$message=null) {
     global $DB;
 
     if (empty($mform)) {
@@ -4091,7 +4174,7 @@ function partforum_add_attachment($post, $forum, $cm, $mform=null, &$message=nul
         return true;   // Nothing to do
     }
 
-    $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $context = context_module::instance($cm->id);
 
     $info = file_get_draft_area_info($post->attachments);
     $present = ($info['filecount']>0) ? '1' : '';
@@ -4117,9 +4200,9 @@ function partforum_add_new_post($post, $mform, &$message) {
     global $USER, $CFG, $DB;
 
     $discussion = $DB->get_record('partforum_discussions', array('id' => $post->discussion));
-    $forum      = $DB->get_record('partforum', array('id' => $discussion->forum));
-    $cm         = get_coursemodule_from_instance('partforum', $forum->id);
-    $context    = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $partforum      = $DB->get_record('partforum', array('id' => $discussion->partforum));
+    $cm         = get_coursemodule_from_instance('partforum', $partforum->id);
+    $context    = context_module::instance($cm->id);
 
     $post->created    = $post->modified = time();
     $post->mailed     = "0";
@@ -4127,7 +4210,7 @@ function partforum_add_new_post($post, $mform, &$message) {
     $post->attachment = "";
 	
 	// update subject line for social comment
-	if ($forum->type == 'participation' && $post->replytype==1){
+	if ($partforum->type == 'participation' && $post->replytype==1){
 		$tempstr_scom = ' - '.get_string('socialcomment', 'partforum');
 		if (strpos($post->subject, $tempstr_scom) === false) {
 			$post->subject .= $tempstr_scom;	
@@ -4137,14 +4220,14 @@ function partforum_add_new_post($post, $mform, &$message) {
     $post->id = $DB->insert_record("partforum_posts", $post);
     $post->message = file_save_draft_area_files($post->itemid, $context->id, 'mod_partforum', 'post', $post->id, array('subdirs'=>true), $post->message);
     $DB->set_field('partforum_posts', 'message', $post->message, array('id'=>$post->id));
-    partforum_add_attachment($post, $forum, $cm, $mform, $message);
+    partforum_add_attachment($post, $partforum, $cm, $mform, $message);
 
     // Update discussion modified date
     $DB->set_field("partforum_discussions", "timemodified", $post->modified, array("id" => $post->discussion));
     $DB->set_field("partforum_discussions", "usermodified", $post->userid, array("id" => $post->discussion));
 
-    if (partforum_tp_can_track_forums($forum) && partforum_tp_is_tracked($forum)) {
-        partforum_tp_mark_post_read($post->userid, $post, $post->forum);
+    if (partforum_tp_can_track_partforums($partforum) && partforum_tp_is_tracked($partforum)) {
+        partforum_tp_mark_post_read($post->userid, $post, $post->partforum);
     }
     
     /*
@@ -4154,9 +4237,9 @@ function partforum_add_new_post($post, $mform, &$message) {
     * Don't add a rating to posts that have a reply type of "social comment"
     * replytye[0] = 'substantive contribution'; replytype[1] = 'social comment'
     */
-    if ($forum->type == 'participation' && $post->replytype==0){
+    if ($partforum->type == 'participation' && $post->replytype==0){
 		
-		$partf_count = partforum_count_user_replies($forum->id, $USER->id);
+		$partf_count = partforum_count_user_replies($partforum->id, $USER->id);
 
 		if($partf_count <= 1){ // The post is already posted so the count should be 1 for first post
 			partforum_post_add_rating($context->id, $USER->id, $post->id, 6, 10);
@@ -4164,8 +4247,8 @@ function partforum_add_new_post($post, $mform, &$message) {
 			partforum_post_add_rating($context->id, $USER->id, $post->id, 10, 10);
 		}
 		
-		// Make sure grades are recorded (we pass the entire forum object to the method!)
-		partforum_update_grades($forum);    
+		// Make sure grades are recorded (we pass the entire partforum object to the method!)
+		partforum_update_grades($partforum);    
 	}
 
     return $post->id;
@@ -4173,23 +4256,23 @@ function partforum_add_new_post($post, $mform, &$message) {
 
 /**
  * Counts the total number of replies created by a given user in
- * an entire forum. This counts the total number of posts that have
+ * an entire partforum. This counts the total number of posts that have
  * parents.
  * This function is used by the Participation Forum
  *
  * @author Thomas Lextrait thomas.lextrait@gmail.com
  *
- * @param $forum_id
+ * @param $partforum_id
  * @param $user_id
  * @return int
  */
-function partforum_count_user_replies($forum_id, $user_id) {
+function partforum_count_user_replies($partforum_id, $user_id) {
 	global $DB;
 	
 	$sql = "
 		SELECT COUNT(post.id) AS postcount 
 		FROM {partforum_posts} AS post, {partforum_discussions} AS disc
-		WHERE post.userid=".$user_id." AND post.parent>0 AND disc.forum=".$forum_id." AND post.discussion=disc.id";
+		WHERE post.userid=".$user_id." AND post.parent>0 AND disc.partforum=".$partforum_id." AND post.discussion=disc.id";
 	
 	$post_count = $DB->get_record_sql($sql, null);
 	
@@ -4245,9 +4328,9 @@ function partforum_update_post($post, $mform, &$message) {
     global $USER, $CFG, $DB;
 
     $discussion = $DB->get_record('partforum_discussions', array('id' => $post->discussion));
-    $forum      = $DB->get_record('partforum', array('id' => $discussion->forum));
-    $cm         = get_coursemodule_from_instance('partforum', $forum->id);
-    $context    = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $partforum      = $DB->get_record('partforum', array('id' => $discussion->partforum));
+    $cm         = get_coursemodule_from_instance('partforum', $partforum->id);
+    $context    = context_module::instance($cm->id);
 
     $post->modified = time();
 
@@ -4266,10 +4349,10 @@ function partforum_update_post($post, $mform, &$message) {
 
     $DB->update_record('partforum_discussions', $discussion);
 
-    partforum_add_attachment($post, $forum, $cm, $mform, $message);
+    partforum_add_attachment($post, $partforum, $cm, $mform, $message);
 
-    if (partforum_tp_can_track_forums($forum) && partforum_tp_is_tracked($forum)) {
-        partforum_tp_mark_post_read($post->userid, $post, $post->forum);
+    if (partforum_tp_can_track_partforums($partforum) && partforum_tp_is_tracked($partforum)) {
+        partforum_tp_mark_post_read($post->userid, $post, $post->partforum);
     }
 
     return true;
@@ -4300,8 +4383,10 @@ function partforum_add_discussion($discussion, $mform=null, &$message=null, $use
     // The first post is stored as a real post, and linked
     // to from the discuss entry.
 
-    $forum = $DB->get_record('partforum', array('id'=>$discussion->forum));
-    $cm    = get_coursemodule_from_instance('partforum', $forum->id);
+    $partforum = $DB->get_record('partforum', array('id'=>$discussion->partforum));
+    $cm    = get_coursemodule_from_instance('partforum', $partforum->id);
+    
+
 
     $post = new stdClass();
     $post->discussion    = 0;
@@ -4315,22 +4400,27 @@ function partforum_add_discussion($discussion, $mform=null, &$message=null, $use
     $post->messageformat = $discussion->messageformat;
     $post->messagetrust  = $discussion->messagetrust;
     $post->attachments   = isset($discussion->attachments) ? $discussion->attachments : null;
-    $post->forum         = $forum->id;     // speedup
-    $post->course        = $forum->course; // speedup
+    $post->partforum         = $partforum->id;     // speedup
+    $post->course        = $partforum->course; // speedup
     $post->mailnow       = $discussion->mailnow;
     
     /*
     * PARTICIPATION FORUM - Add the intro text to post
     */
-    if ($forum->type == 'participation'){
-    	$post->message .= "<br/>" . $forum->intro . get_string("forumintro_default_partforum", "partforum", userdate($forum->assesstimefinish, get_string('strftimedate')));
+ 
+    
+    
+    if ($partforum->type == 'participation'){
+    	//$post->message .= "<br/>" .'<div class=mod_participation_instruction >'.$partforum->intro . get_string("partforumintro_default_partforum", "partforum", userdate($partforum->assesstimefinish, get_string('strftimedaydatetime', 'langconfig'))).'</div>';
+        $post->message .= "<br/>" .$partforum->intro;
     }
 
+    
     $post->id = $DB->insert_record("partforum_posts", $post);
 
     // TODO: Fix the calling code so that there always is a $cm when this function is called
     if (!empty($cm->id) && !empty($discussion->itemid)) {   // In "single simple discussions" this may not exist yet
-        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $context = context_module::instance($cm->id);
         $text = file_save_draft_area_files($discussion->itemid, $context->id, 'mod_partforum', 'post', $post->id, array('subdirs'=>true), $post->message);
         $DB->set_field('partforum_posts', 'message', $text, array('id'=>$post->id));
     }
@@ -4348,11 +4438,11 @@ function partforum_add_discussion($discussion, $mform=null, &$message=null, $use
     $DB->set_field("partforum_posts", "discussion", $post->discussion, array("id"=>$post->id));
 
     if (!empty($cm->id)) {
-        partforum_add_attachment($post, $forum, $cm, $mform, $message);
+        partforum_add_attachment($post, $partforum, $cm, $mform, $message);
     }
 
-    if (partforum_tp_can_track_forums($forum) && partforum_tp_is_tracked($forum)) {
-        partforum_tp_mark_post_read($post->userid, $post, $post->forum);
+    if (partforum_tp_can_track_partforums($partforum) && partforum_tp_is_tracked($partforum)) {
+        partforum_tp_mark_post_read($post->userid, $post, $post->partforum);
     }
 
     return $post->discussion;
@@ -4364,13 +4454,13 @@ function partforum_add_discussion($discussion, $mform=null, &$message=null, $use
  *
  * @global object
  * @param object $discussion Discussion to delete
- * @param bool $fulldelete True when deleting entire forum
+ * @param bool $fulldelete True when deleting entire partforum
  * @param object $course Course
  * @param object $cm Course-module
- * @param object $forum Forum
+ * @param object $partforum Forum
  * @return bool
  */
-function partforum_delete_discussion($discussion, $fulldelete, $course, $cm, $forum) {
+function partforum_delete_discussion($discussion, $fulldelete, $course, $cm, $partforum) {
     global $DB, $CFG;
     require_once($CFG->libdir.'/completionlib.php');
 
@@ -4379,8 +4469,8 @@ function partforum_delete_discussion($discussion, $fulldelete, $course, $cm, $fo
     if ($posts = $DB->get_records("partforum_posts", array("discussion" => $discussion->id))) {
         foreach ($posts as $post) {
             $post->course = $discussion->course;
-            $post->forum  = $discussion->forum;
-            if (!partforum_delete_post($post, 'ignore', $course, $cm, $forum, $fulldelete)) {
+            $post->partforum  = $discussion->partforum;
+            if (!partforum_delete_post($post, 'ignore', $course, $cm, $partforum, $fulldelete)) {
                 $result = false;
             }
         }
@@ -4397,7 +4487,7 @@ function partforum_delete_discussion($discussion, $fulldelete, $course, $cm, $fo
     if (!$fulldelete) {
         $completion = new completion_info($course);
         if ($completion->is_enabled($cm) == COMPLETION_TRACKING_AUTOMATIC &&
-           ($forum->completiondiscussions || $forum->completionreplies || $forum->completionposts)) {
+           ($partforum->completiondiscussions || $partforum->completionreplies || $partforum->completionposts)) {
             $completion->update_state($cm, COMPLETION_INCOMPLETE, $discussion->userid);
         }
     }
@@ -4407,7 +4497,7 @@ function partforum_delete_discussion($discussion, $fulldelete, $course, $cm, $fo
 
 
 /**
- * Deletes a single forum post.
+ * Deletes a single partforum post.
  *
  * @global object
  * @param object $post Forum post object
@@ -4418,21 +4508,21 @@ function partforum_delete_discussion($discussion, $fulldelete, $course, $cm, $fo
  *   in a disussion).
  * @param object $course Course
  * @param object $cm Course-module
- * @param object $forum Forum
+ * @param object $partforum Forum
  * @param bool $skipcompletion True to skip updating completion state if it
- *   would otherwise be updated, i.e. when deleting entire forum anyway.
+ *   would otherwise be updated, i.e. when deleting entire partforum anyway.
  * @return bool
  */
-function partforum_delete_post($post, $children, $course, $cm, $forum, $skipcompletion=false) {
+function partforum_delete_post($post, $children, $course, $cm, $partforum, $skipcompletion=false) {
     global $DB, $CFG;
     require_once($CFG->libdir.'/completionlib.php');
 
-    $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $context = context_module::instance($cm->id);
 
     if ($children != 'ignore' && ($childposts = $DB->get_records('partforum_posts', array('parent'=>$post->id)))) {
        if ($children) {
            foreach ($childposts as $childpost) {
-               partforum_delete_post($childpost, true, $course, $cm, $forum, $skipcompletion);
+               partforum_delete_post($childpost, true, $course, $cm, $partforum, $skipcompletion);
            }
        } else {
            return false;
@@ -4449,8 +4539,8 @@ function partforum_delete_post($post, $children, $course, $cm, $forum, $skipcomp
     $rm = new rating_manager();
     $rm->delete_ratings($delopt);
     
-    //update grades (for participation forum)
-    partforum_update_grades($forum);
+    //update grades (for participation partforum)
+    partforum_update_grades($partforum);
 
     //delete attachments
     $fs = get_file_storage();
@@ -4470,7 +4560,7 @@ function partforum_delete_post($post, $children, $course, $cm, $forum, $skipcomp
         if (!$skipcompletion) {
             $completion = new completion_info($course);
             if ($completion->is_enabled($cm) == COMPLETION_TRACKING_AUTOMATIC &&
-               ($forum->completiondiscussions || $forum->completionreplies || $forum->completionposts)) {
+               ($partforum->completiondiscussions || $partforum->completionreplies || $partforum->completionposts)) {
                 $completion->update_state($cm, COMPLETION_INCOMPLETE, $post->userid);
             }
         }
@@ -4507,60 +4597,60 @@ function partforum_count_replies($post, $children=true) {
 
 /**
  * @global object
- * @param int $forumid
+ * @param int $partforumid
  * @param mixed $value
  * @return bool
  */
-function partforum_forcesubscribe($forumid, $value=1) {
+function partforum_forcesubscribe($partforumid, $value=1) {
     global $DB;
-    return $DB->set_field("partforum", "forcesubscribe", $value, array("id" => $forumid));
+    return $DB->set_field("partforum", "forcesubscribe", $value, array("id" => $partforumid));
 }
 
 /**
  * @global object
- * @param object $forum
+ * @param object $partforum
  * @return bool
  */
-function partforum_is_forcesubscribed($forum) {
+function partforum_is_forcesubscribed($partforum) {
     global $DB;
-    if (isset($forum->forcesubscribe)) {    // then we use that
-        return ($forum->forcesubscribe == PARTFORUM_FORCESUBSCRIBE);
+    if (isset($partforum->forcesubscribe)) {    // then we use that
+        return ($partforum->forcesubscribe == PARTFORUM_FORCESUBSCRIBE);
     } else {   // Check the database
-       return ($DB->get_field('partforum', 'forcesubscribe', array('id' => $forum)) == PARTFORUM_FORCESUBSCRIBE);
+       return ($DB->get_field('partforum', 'forcesubscribe', array('id' => $partforum)) == PARTFORUM_FORCESUBSCRIBE);
     }
 }
 
-function partforum_get_forcesubscribed($forum) {
+function partforum_get_forcesubscribed($partforum) {
     global $DB;
-    if (isset($forum->forcesubscribe)) {    // then we use that
-        return $forum->forcesubscribe;
+    if (isset($partforum->forcesubscribe)) {    // then we use that
+        return $partforum->forcesubscribe;
     } else {   // Check the database
-        return $DB->get_field('partforum', 'forcesubscribe', array('id' => $forum));
+        return $DB->get_field('partforum', 'forcesubscribe', array('id' => $partforum));
     }
 }
 
 /**
  * @global object
  * @param int $userid
- * @param object $forum
+ * @param object $partforum
  * @return bool
  */
-function partforum_is_subscribed($userid, $forum) {
+function partforum_is_subscribed($userid, $partforum) {
     global $DB;
-    if (is_numeric($forum)) {
-        $forum = $DB->get_record('partforum', array('id' => $forum));
+    if (is_numeric($partforum)) {
+        $partforum = $DB->get_record('partforum', array('id' => $partforum));
     }
-    if (partforum_is_forcesubscribed($forum)) {
+    if (partforum_is_forcesubscribed($partforum)) {
         return true;
     }
-    return $DB->record_exists("partforum_subscriptions", array("userid" => $userid, "forum" => $forum->id));
+    return $DB->record_exists("partforum_subscriptions", array("userid" => $userid, "partforum" => $partforum->id));
 }
 
-function partforum_get_subscribed_forums($course) {
+function partforum_get_subscribed_partforums($course) {
     global $USER, $CFG, $DB;
     $sql = "SELECT f.id
               FROM {partforum} f
-                   LEFT JOIN {partforum_subscriptions} fs ON (fs.forum = f.id AND fs.userid = ?)
+                   LEFT JOIN {partforum_subscriptions} fs ON (fs.partforum = f.id AND fs.userid = ?)
              WHERE f.forcesubscribe <> ".PARTFORUM_DISALLOWSUBSCRIBE."
                    AND (f.forcesubscribe = ".PARTFORUM_FORCESUBSCRIBE." OR fs.id IS NOT NULL)";
     if ($subscribed = $DB->get_records_sql($sql, array($USER->id))) {
@@ -4578,18 +4668,18 @@ function partforum_get_subscribed_forums($course) {
  *
  * @global object
  * @param int $userid
- * @param int $forumid
+ * @param int $partforumid
  */
-function partforum_subscribe($userid, $forumid) {
+function partforum_subscribe($userid, $partforumid) {
     global $DB;
 
-    if ($DB->record_exists("partforum_subscriptions", array("userid"=>$userid, "forum"=>$forumid))) {
+    if ($DB->record_exists("partforum_subscriptions", array("userid"=>$userid, "partforum"=>$partforumid))) {
         return true;
     }
 
     $sub = new stdClass();
     $sub->userid  = $userid;
-    $sub->forum = $forumid;
+    $sub->partforum = $partforumid;
 
     return $DB->insert_record("partforum_subscriptions", $sub);
 }
@@ -4599,11 +4689,11 @@ function partforum_subscribe($userid, $forumid) {
  *
  * @global object
  * @param int $userid
- * @param int $forumid
+ * @param int $partforumid
  */
-function partforum_unsubscribe($userid, $forumid) {
+function partforum_unsubscribe($userid, $partforumid) {
     global $DB;
-    return $DB->delete_records("partforum_subscriptions", array("userid"=>$userid, "forum"=>$forumid));
+    return $DB->delete_records("partforum_subscriptions", array("userid"=>$userid, "partforum"=>$partforumid));
 }
 
 /**
@@ -4612,20 +4702,20 @@ function partforum_unsubscribe($userid, $forumid) {
  *
  * @global objec
  * @param object $post
- * @param object $forum
+ * @param object $partforum
  */
-function partforum_post_subscription($post, $forum) {
+function partforum_post_subscription($post, $partforum) {
 
     global $USER;
 
     $action = '';
-    $subscribed = partforum_is_subscribed($USER->id, $forum);
+    $subscribed = partforum_is_subscribed($USER->id, $partforum);
 
-    if ($forum->forcesubscribe == PARTFORUM_FORCESUBSCRIBE) { // database ignored
+    if ($partforum->forcesubscribe == PARTFORUM_FORCESUBSCRIBE) { // database ignored
         return "";
 
-    } elseif (($forum->forcesubscribe == PARTFORUM_DISALLOWSUBSCRIBE)
-        && !has_capability('moodle/course:manageactivities', get_context_instance(CONTEXT_COURSE, $forum->course), $USER->id)) {
+    } elseif (($partforum->forcesubscribe == PARTFORUM_DISALLOWSUBSCRIBE)
+        && !has_capability('moodle/course:manageactivities', context_course::instance( $partforum->course), $USER->id)) {
         if ($subscribed) {
             $action = 'unsubscribe'; // sanity check, following MDL-14558
         } else {
@@ -4650,23 +4740,23 @@ function partforum_post_subscription($post, $forum) {
 
     $info = new stdClass();
     $info->name  = fullname($USER);
-    $info->forum = format_string($forum->name);
+    $info->partforum = format_string($partforum->name);
 
     switch ($action) {
         case 'subscribe':
-            partforum_subscribe($USER->id, $post->forum);
+            partforum_subscribe($USER->id, $post->partforum);
             return "<p>".get_string("nowsubscribed", "partforum", $info)."</p>";
         case 'unsubscribe':
-            partforum_unsubscribe($USER->id, $post->forum);
+            partforum_unsubscribe($USER->id, $post->partforum);
             return "<p>".get_string("nownotsubscribed", "partforum", $info)."</p>";
     }
 }
 
 /**
- * Generate and return the subscribe or unsubscribe link for a forum.
+ * Generate and return the subscribe or unsubscribe link for a partforum.
  *
- * @param object $forum the forum. Fields used are $forum->id and $forum->forcesubscribe.
- * @param object $context the context object for this forum.
+ * @param object $partforum the partforum. Fields used are $partforum->id and $partforum->forcesubscribe.
+ * @param object $context the context object for this partforum.
  * @param array $messages text used for the link in its various states
  *      (subscribed, unsubscribed, forcesubscribed or cantsubscribe).
  *      Any strings not passed in are taken from the $defaultmessages array
@@ -4674,10 +4764,10 @@ function partforum_post_subscription($post, $forum) {
  * @param bool $cantaccessagroup
  * @param bool $fakelink
  * @param bool $backtoindex
- * @param array $subscribed_forums
+ * @param array $subscribed_partforums
  * @return string
  */
-function partforum_get_subscribe_link($forum, $context, $messages = array(), $cantaccessagroup = false, $fakelink=true, $backtoindex=false, $subscribed_forums=null) {
+function partforum_get_subscribe_link($partforum, $context, $messages = array(), $cantaccessagroup = false, $fakelink=true, $backtoindex=false, $subscribed_partforums=null) {
     global $CFG, $USER, $PAGE, $OUTPUT;
     $defaultmessages = array(
         'subscribed' => get_string('unsubscribe', 'partforum'),
@@ -4688,9 +4778,9 @@ function partforum_get_subscribe_link($forum, $context, $messages = array(), $ca
     );
     $messages = $messages + $defaultmessages;
 
-    if (partforum_is_forcesubscribed($forum)) {
+    if (partforum_is_forcesubscribed($partforum)) {
         return $messages['forcesubscribed'];
-    } else if ($forum->forcesubscribe == PARTFORUM_DISALLOWSUBSCRIBE && !has_capability('mod/partforum:managesubscriptions', $context)) {
+    } else if ($partforum->forcesubscribe == PARTFORUM_DISALLOWSUBSCRIBE && !has_capability('mod/partforum:managesubscriptions', $context)) {
         return $messages['cantsubscribe'];
     } else if ($cantaccessagroup) {
         return $messages['cantaccessgroup'];
@@ -4698,10 +4788,10 @@ function partforum_get_subscribe_link($forum, $context, $messages = array(), $ca
         if (!is_enrolled($context, $USER, '', true)) {
             return '';
         }
-        if (is_null($subscribed_forums)) {
-            $subscribed = partforum_is_subscribed($USER->id, $forum);
+        if (is_null($subscribed_partforums)) {
+            $subscribed = partforum_is_subscribed($USER->id, $partforum);
         } else {
-            $subscribed = !empty($subscribed_forums[$forum->id]);
+            $subscribed = !empty($subscribed_partforums[$partforum->id]);
         }
         if ($subscribed) {
             $linktext = $messages['subscribed'];
@@ -4721,11 +4811,11 @@ function partforum_get_subscribe_link($forum, $context, $messages = array(), $ca
         $link = '';
 
         if ($fakelink) {
-            $PAGE->requires->js('/mod/partforum/forum.js');
-            $PAGE->requires->js_function_call('forum_produce_subscribe_link', array($forum->id, $backtoindexlink, $linktext, $linktitle));
+            $PAGE->requires->js('/mod/partforum/partforum.js');
+            $PAGE->requires->js_function_call('partforum_produce_subscribe_link', array($partforum->id, $backtoindexlink, $linktext, $linktitle));
             $link = "<noscript>";
         }
-        $options['id'] = $forum->id;
+        $options['id'] = $partforum->id;
         $options['sesskey'] = sesskey();
         $url = new moodle_url('/mod/partforum/subscribe.php', $options);
         $link .= $OUTPUT->single_button($url, $linktext, 'get', array('title'=>$linktitle));
@@ -4739,50 +4829,50 @@ function partforum_get_subscribe_link($forum, $context, $messages = array(), $ca
 
 
 /**
- * Generate and return the track or no track link for a forum.
+ * Generate and return the track or no track link for a partforum.
  *
  * @global object
  * @global object
  * @global object
- * @param object $forum the forum. Fields used are $forum->id and $forum->forcesubscribe.
+ * @param object $partforum the partforum. Fields used are $partforum->id and $partforum->forcesubscribe.
  * @param array $messages
  * @param bool $fakelink
  * @return string
  */
-function partforum_get_tracking_link($forum, $messages=array(), $fakelink=true) {
+function partforum_get_tracking_link($partforum, $messages=array(), $fakelink=true) {
     global $CFG, $USER, $PAGE, $OUTPUT;
 
-    static $strnotrackforum, $strtrackforum;
+    static $strnotrackpartforum, $strtrackpartforum;
 
-    if (isset($messages['trackforum'])) {
-         $strtrackforum = $messages['trackforum'];
+    if (isset($messages['trackpartforum'])) {
+         $strtrackpartforum = $messages['trackpartforum'];
     }
-    if (isset($messages['notrackforum'])) {
-         $strnotrackforum = $messages['notrackforum'];
+    if (isset($messages['notrackpartforum'])) {
+         $strnotrackpartforum = $messages['notrackpartforum'];
     }
-    if (empty($strtrackforum)) {
-        $strtrackforum = get_string('trackforum', 'partforum');
+    if (empty($strtrackpartforum)) {
+        $strtrackpartforum = get_string('trackpartforum', 'partforum');
     }
-    if (empty($strnotrackforum)) {
-        $strnotrackforum = get_string('notrackforum', 'partforum');
+    if (empty($strnotrackpartforum)) {
+        $strnotrackpartforum = get_string('notrackpartforum', 'partforum');
     }
 
-    if (partforum_tp_is_tracked($forum)) {
-        $linktitle = $strnotrackforum;
-        $linktext = $strnotrackforum;
+    if (partforum_tp_is_tracked($partforum)) {
+        $linktitle = $strnotrackpartforum;
+        $linktext = $strnotrackpartforum;
     } else {
-        $linktitle = $strtrackforum;
-        $linktext = $strtrackforum;
+        $linktitle = $strtrackpartforum;
+        $linktext = $strtrackpartforum;
     }
 
     $link = '';
     if ($fakelink) {
-        $PAGE->requires->js('/mod/partforum/forum.js');
-        $PAGE->requires->js_function_call('forum_produce_tracking_link', Array($forum->id, $linktext, $linktitle));
+        $PAGE->requires->js('/mod/partforum/partforum.js');
+        $PAGE->requires->js_function_call('partforum_produce_tracking_link', Array($partforum->id, $linktext, $linktitle));
         // use <noscript> to print button in case javascript is not enabled
         $link .= '<noscript>';
     }
-    $url = new moodle_url('/mod/partforum/settracking.php', array('id'=>$forum->id));
+    $url = new moodle_url('/mod/partforum/settracking.php', array('id'=>$partforum->id));
     $link .= $OUTPUT->single_button($url, $linktext, 'get', array('title'=>$linktitle));
 
     if ($fakelink) {
@@ -4799,28 +4889,28 @@ function partforum_get_tracking_link($forum, $messages=array(), $fakelink=true) 
  *
  * @global object
  * @global object
- * @param int $forumid
+ * @param int $partforumid
  * @param int $userid
  * @return bool
  */
-function partforum_user_has_posted_discussion($forumid, $userid) {
+function partforum_user_has_posted_discussion($partforumid, $userid) {
     global $CFG, $DB;
 
     $sql = "SELECT 'x'
               FROM {partforum_discussions} d, {partforum_posts} p
-             WHERE d.forum = ? AND p.discussion = d.id AND p.parent = 0 and p.userid = ?";
+             WHERE d.partforum = ? AND p.discussion = d.id AND p.parent = 0 and p.userid = ?";
 
-    return $DB->record_exists_sql($sql, array($forumid, $userid));
+    return $DB->record_exists_sql($sql, array($partforumid, $userid));
 }
 
 /**
  * @global object
  * @global object
- * @param int $forumid
+ * @param int $partforumid
  * @param int $userid
  * @return array
  */
-function partforum_discussions_user_has_posted_in($forumid, $userid) {
+function partforum_discussions_user_has_posted_in($partforumid, $userid) {
     global $CFG, $DB;
 
     $haspostedsql = "SELECT d.id AS id,
@@ -4828,30 +4918,30 @@ function partforum_discussions_user_has_posted_in($forumid, $userid) {
                        FROM {partforum_posts} p,
                             {partforum_discussions} d
                       WHERE p.discussion = d.id
-                        AND d.forum = ?
+                        AND d.partforum = ?
                         AND p.userid = ?";
 
-    return $DB->get_records_sql($haspostedsql, array($forumid, $userid));
+    return $DB->get_records_sql($haspostedsql, array($partforumid, $userid));
 }
 
 /**
  * @global object
  * @global object
- * @param int $forumid
+ * @param int $partforumid
  * @param int $did
  * @param int $userid
  * @return bool
  */
-function partforum_user_has_posted($forumid, $did, $userid) {
+function partforum_user_has_posted($partforumid, $did, $userid) {
     global $DB;
 
     if (empty($did)) {
-        // posted in any forum discussion?
+        // posted in any partforum discussion?
         $sql = "SELECT 'x'
                   FROM {partforum_posts} p
                   JOIN {partforum_discussions} d ON d.id = p.discussion
-                 WHERE p.userid = :userid AND d.forum = :forumid";
-        return $DB->record_exists_sql($sql, array('forumid'=>$forumid,'userid'=>$userid));
+                 WHERE p.userid = :userid AND d.partforum = :partforumid";
+        return $DB->record_exists_sql($sql, array('partforumid'=>$partforumid,'userid'=>$userid));
     } else {
         return $DB->record_exists('partforum_posts', array('discussion'=>$did,'userid'=>$userid));
     }
@@ -4876,15 +4966,15 @@ function partforum_get_user_posted_time($did, $userid) {
 
 /**
  * @global object
- * @param object $forum
+ * @param object $partforum
  * @param object $currentgroup
  * @param int $unused
  * @param object $cm
  * @param object $context
  * @return bool
  */
-function partforum_user_can_post_discussion($forum, $currentgroup=null, $unused=-1, $cm=NULL, $context=NULL) {
-// $forum is an object
+function partforum_user_can_post_discussion($partforum, $currentgroup=null, $unused=-1, $cm=NULL, $context=NULL) {
+// $partforum is an object
     global $USER;
 
     // shortcut - guest and not-logged-in users can not post
@@ -4894,13 +4984,13 @@ function partforum_user_can_post_discussion($forum, $currentgroup=null, $unused=
 
     if (!$cm) {
         debugging('missing cm', DEBUG_DEVELOPER);
-        if (!$cm = get_coursemodule_from_instance('partforum', $forum->id, $forum->course)) {
+        if (!$cm = get_coursemodule_from_instance('partforum', $partforum->id, $partforum->course)) {
             print_error('invalidcoursemodule');
         }
     }
 
     if (!$context) {
-        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $context = context_module::instance($cm->id);
     }
 
     if ($currentgroup === null) {
@@ -4909,7 +4999,7 @@ function partforum_user_can_post_discussion($forum, $currentgroup=null, $unused=
 
     $groupmode = groups_get_activity_groupmode($cm);
 
-    if ($forum->type == 'news') {
+    if ($partforum->type == 'news') {
         $capname = 'mod/partforum:addnews';
     } else {
         $capname = 'mod/partforum:startdiscussion';
@@ -4919,8 +5009,8 @@ function partforum_user_can_post_discussion($forum, $currentgroup=null, $unused=
         return false;
     }
 
-    if ($forum->type == 'eachuser') {
-        if (partforum_user_has_posted_discussion($forum->id, $USER->id)) {
+    if ($partforum->type == 'eachuser') {
+        if (partforum_user_has_posted_discussion($partforum->id, $USER->id)) {
             return false;
         }
     }
@@ -4939,8 +5029,8 @@ function partforum_user_can_post_discussion($forum, $currentgroup=null, $unused=
 }
 
 /**
- * This function checks whether the user can reply to posts in a forum
- * discussion. Use forum_user_can_post_discussion() to check whether the user
+ * This function checks whether the user can reply to posts in a partforum
+ * discussion. Use partforum_user_can_post_discussion() to check whether the user
  * can start discussions.
  *
  * @global object
@@ -4948,7 +5038,7 @@ function partforum_user_can_post_discussion($forum, $currentgroup=null, $unused=
  * @uses DEBUG_DEVELOPER
  * @uses CONTEXT_MODULE
  * @uses VISIBLEGROUPS
- * @param object $forum forum object
+ * @param object $partforum partforum object
  * @param object $discussion
  * @param object $user
  * @param object $cm
@@ -4956,7 +5046,7 @@ function partforum_user_can_post_discussion($forum, $currentgroup=null, $unused=
  * @param object $context
  * @return bool
  */
-function partforum_user_can_post($forum, $discussion, $user=NULL, $cm=NULL, $course=NULL, $context=NULL) {
+function partforum_user_can_post($partforum, $discussion, $user=NULL, $cm=NULL, $course=NULL, $context=NULL) {
     global $USER, $DB;
     if (empty($user)) {
         $user = $USER;
@@ -4974,20 +5064,20 @@ function partforum_user_can_post($forum, $discussion, $user=NULL, $cm=NULL, $cou
 
     if (!$cm) {
         debugging('missing cm', DEBUG_DEVELOPER);
-        if (!$cm = get_coursemodule_from_instance('partforum', $forum->id, $forum->course)) {
+        if (!$cm = get_coursemodule_from_instance('partforum', $partforum->id, $partforum->course)) {
             print_error('invalidcoursemodule');
         }
     }
 
     if (!$course) {
         debugging('missing course', DEBUG_DEVELOPER);
-        if (!$course = $DB->get_record('course', array('id' => $forum->course))) {
+        if (!$course = $DB->get_record('course', array('id' => $partforum->course))) {
             print_error('invalidcourseid');
         }
     }
 
     if (!$context) {
-        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $context = context_module::instance($cm->id);
     }
 
     // normal users with temporary guest access can not post, suspended users can not post either
@@ -4995,7 +5085,7 @@ function partforum_user_can_post($forum, $discussion, $user=NULL, $cm=NULL, $cou
         return false;
     }
 
-    if ($forum->type == 'news') {
+    if ($partforum->type == 'news') {
         $capname = 'mod/partforum:replynews';
     } else {
         $capname = 'mod/partforum:replypost';
@@ -5040,11 +5130,11 @@ function partforum_user_can_post($forum, $discussion, $user=NULL, $cm=NULL, $cou
  * @param object $post
  * @param object $course
  * @param object $cm
- * @param object $forum
+ * @param object $partforum
  * @param object $discussion
  * @param object $user
  */
-function partforum_user_can_view_post($post, $course, $cm, $forum, $discussion, $user=NULL){
+function partforum_user_can_view_post($post, $course, $cm, $partforum, $discussion, $user=NULL){
 
     global $CFG, $USER;
 
@@ -5052,7 +5142,7 @@ function partforum_user_can_view_post($post, $course, $cm, $forum, $discussion, 
         $user = $USER;
     }
 
-    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $modcontext = context_module::instance($cm->id);
     if (!has_capability('mod/partforum:viewdiscussion', $modcontext)) {
         return false;
     }
@@ -5072,13 +5162,13 @@ function partforum_user_can_view_post($post, $course, $cm, $forum, $discussion, 
  * @global object
  * @global object
  * @uses DEBUG_DEVELOPER
- * @param object $forum
+ * @param object $partforum
  * @param object $discussion
  * @param object $context
  * @param object $user
  * @return bool
  */
-function partforum_user_can_see_discussion($forum, $discussion, $context, $user=NULL) {
+function partforum_user_can_see_discussion($partforum, $discussion, $context, $user=NULL) {
     global $USER, $DB;
 
     if (empty($user) || empty($user->id)) {
@@ -5086,9 +5176,9 @@ function partforum_user_can_see_discussion($forum, $discussion, $context, $user=
     }
 
     // retrieve objects (yuk)
-    if (is_numeric($forum)) {
-        debugging('missing full forum', DEBUG_DEVELOPER);
-        if (!$forum = $DB->get_record('partforum',array('id'=>$forum))) {
+    if (is_numeric($partforum)) {
+        debugging('missing full partforum', DEBUG_DEVELOPER);
+        if (!$partforum = $DB->get_record('partforum',array('id'=>$partforum))) {
             return false;
         }
     }
@@ -5103,8 +5193,8 @@ function partforum_user_can_see_discussion($forum, $discussion, $context, $user=
         return false;
     }
 
-    if ($forum->type == 'qanda' &&
-            !partforum_user_has_posted($forum->id, $discussion->id, $user->id) &&
+    if ($partforum->type == 'qanda' &&
+            !partforum_user_has_posted($partforum->id, $discussion->id, $user->id) &&
             !has_capability('mod/partforum:viewqandawithoutposting', $context)) {
         return false;
     }
@@ -5115,20 +5205,20 @@ function partforum_user_can_see_discussion($forum, $discussion, $context, $user=
 /**
  * @global object
  * @global object
- * @param object $forum
+ * @param object $partforum
  * @param object $discussion
  * @param object $post
  * @param object $user
  * @param object $cm
  * @return bool
  */
-function partforum_user_can_see_post($forum, $discussion, $post, $user=NULL, $cm=NULL) {
+function partforum_user_can_see_post($partforum, $discussion, $post, $user=NULL, $cm=NULL) {
     global $CFG, $USER, $DB;
 
     // retrieve objects (yuk)
-    if (is_numeric($forum)) {
-        debugging('missing full forum', DEBUG_DEVELOPER);
-        if (!$forum = $DB->get_record('partforum',array('id'=>$forum))) {
+    if (is_numeric($partforum)) {
+        debugging('missing full partforum', DEBUG_DEVELOPER);
+        if (!$partforum = $DB->get_record('partforum',array('id'=>$partforum))) {
             return false;
         }
     }
@@ -5151,7 +5241,7 @@ function partforum_user_can_see_post($forum, $discussion, $post, $user=NULL, $cm
 
     if (!$cm) {
         debugging('missing cm', DEBUG_DEVELOPER);
-        if (!$cm = get_coursemodule_from_instance('partforum', $forum->id, $forum->course)) {
+        if (!$cm = get_coursemodule_from_instance('partforum', $partforum->id, $partforum->course)) {
             print_error('invalidcoursemodule');
         }
     }
@@ -5165,7 +5255,7 @@ function partforum_user_can_see_post($forum, $discussion, $post, $user=NULL, $cm
             return false;
         }
     } else {
-        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $modcontext = context_module::instance($cm->id);
         if (!has_capability('mod/partforum:viewdiscussion', $modcontext, $user->id)) {
             return false;
         }
@@ -5176,14 +5266,16 @@ function partforum_user_can_see_post($forum, $discussion, $post, $user=NULL, $cm
             return false;
         }
     } else {
-        if (!coursemodule_visible_for_user($cm, $user->id)) {
+	// updated on 20151026 by Murphy
+        // if (!coursemodule_visible_for_user($cm, $user->id)) {
+	if (!\core_availability\info_module::is_user_visible($cm, $user->id, false)) {
             return false;
         }
     }
 
-    if ($forum->type == 'qanda') {
+    if ($partforum->type == 'qanda') {
         $firstpost = partforum_get_firstpost_from_discussion($discussion->id);
-        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $modcontext = context_module::instance($cm->id);
         $userfirstpost = partforum_get_user_posted_time($discussion->id, $user->id);
 
         return (($userfirstpost !== false && (time() - $userfirstpost >= $CFG->maxeditingtime)) ||
@@ -5195,31 +5287,31 @@ function partforum_user_can_see_post($forum, $discussion, $post, $user=NULL, $cm
 
 
 /**
- * Prints the discussion view screen for a forum.
+ * Prints the discussion view screen for a partforum.
  *
  * @global object
  * @global object
  * @param object $course The current course object.
- * @param object $forum Forum to be printed.
+ * @param object $partforum Forum to be printed.
  * @param int $maxdiscussions .
  * @param string $displayformat The display format to use (optional).
  * @param string $sort Sort arguments for database query (optional).
- * @param int $groupmode Group mode of the forum (optional).
+ * @param int $groupmode Group mode of the partforum (optional).
  * @param void $unused (originally current group)
  * @param int $page Page mode, page to display (optional).
  * @param int $perpage The maximum number of discussions per page(optional)
  *
  */
-function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1, $displayformat='plain', $sort='',
+function partforum_print_latest_discussions($course, $partforum, $maxdiscussions=-1, $displayformat='plain', $sort='',
                                         $currentgroup=-1, $groupmode=-1, $page=-1, $perpage=100, $cm=NULL) {
     global $CFG, $USER, $OUTPUT;
 
     if (!$cm) {
-        if (!$cm = get_coursemodule_from_instance('partforum', $forum->id, $forum->course)) {
+        if (!$cm = get_coursemodule_from_instance('partforum', $partforum->id, $partforum->course)) {
             print_error('invalidcoursemodule');
         }
     }
-    $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $context = context_module::instance($cm->id);
 
     if (empty($sort)) {
         $sort = "d.timemodified DESC";
@@ -5266,8 +5358,8 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
 // button for it. We do not show the button if we are showing site news
 // and the current user is a guest.
 
-    $canstart = partforum_user_can_post_discussion($forum, $currentgroup, $groupmode, $cm, $context);
-    if (!$canstart and $forum->type !== 'news') {
+    $canstart = partforum_user_can_post_discussion($partforum, $currentgroup, $groupmode, $cm, $context);
+    if (!$canstart and $partforum->type !== 'news') {
         if (isguestuser() or !isloggedin()) {
             $canstart = true;
         }
@@ -5278,14 +5370,13 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
             $canstart = enrol_selfenrol_available($course->id);
         }
     }
-	
+
     if ($canstart) {
-		echo "<center>";
-        echo '<div class="singlebutton forumaddnew">';
+        echo '<div class="singlebutton partforumaddnew">';
         echo "<form id=\"newdiscussionform\" method=\"get\" action=\"$CFG->wwwroot/mod/partforum/post.php\">";
         echo '<div>';
-        echo "<input type=\"hidden\" name=\"forum\" value=\"$forum->id\" />";
-        switch ($forum->type) {
+        echo "<input type=\"hidden\" name=\"partforum\" value=\"$partforum->id\" />";
+        switch ($partforum->type) {
             case 'news':
             case 'blog':
                 $buttonadd = get_string('addanewtopic', 'partforum');
@@ -5304,9 +5395,8 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
         echo '</div>';
         echo '</form>';
         echo "</div>\n";
-		echo "</center>";
 
-    } else if (isguestuser() or !isloggedin() or $forum->type == 'news') {
+    } else if (isguestuser() or !isloggedin() or $partforum->type == 'news') {
         // no button and no info
 
     } else if ($groupmode and has_capability('mod/partforum:startdiscussion', $context)) {
@@ -5323,12 +5413,12 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
     $getuserlastmodified = ($displayformat == 'header');
 
     if (! $discussions = partforum_get_discussions($cm, $sort, $fullpost, null, $maxdiscussions, $getuserlastmodified, $page, $perpage) ) {
-        echo '<div class="forumnodiscuss">';
-        if ($forum->type == 'news') {
+        echo '<div class="partforumnodiscuss">';
+        if ($partforum->type == 'news') {
             echo '('.get_string('nonews', 'partforum').')';
-        } else if ($forum->type == 'qanda') {
+        } else if ($partforum->type == 'qanda') {
             echo '('.get_string('noquestions','partforum').')';
-        } else if ($forum->type == 'participation') {
+        } else if ($partforum->type == 'participation') {
         	echo '('.get_string('nogroupposts', 'partforum').')';
         } else {
             echo '('.get_string('nodiscussions', 'partforum').')';
@@ -5343,16 +5433,16 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
         $numdiscussions = partforum_get_discussions_count($cm);
 
         ///Show the paging bar
-        echo $OUTPUT->paging_bar($numdiscussions, $page, $perpage, "view.php?f=$forum->id");
+        echo $OUTPUT->paging_bar($numdiscussions, $page, $perpage, "view.php?f=$partforum->id");
         if ($numdiscussions > 1000) {
-            // saves some memory on sites with very large forums
-            $replies = partforum_count_discussion_replies($forum->id, $sort, $maxdiscussions, $page, $perpage);
+            // saves some memory on sites with very large partforums
+            $replies = partforum_count_discussion_replies($partforum->id, $sort, $maxdiscussions, $page, $perpage);
         } else {
-            $replies = partforum_count_discussion_replies($forum->id);
+            $replies = partforum_count_discussion_replies($partforum->id);
         }
 
     } else {
-        $replies = partforum_count_discussion_replies($forum->id);
+        $replies = partforum_count_discussion_replies($partforum->id);
 
         if ($maxdiscussions > 0 and $maxdiscussions <= count($discussions)) {
             $olddiscussionlink = true;
@@ -5363,22 +5453,21 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
 
     $strdatestring = get_string('strftimerecentfull');
 
-    // Check if the forum is tracked.
-    if ($cantrack = partforum_tp_can_track_forums($forum)) {
-        $forumtracked = partforum_tp_is_tracked($forum);
+    // Check if the partforum is tracked.
+    if ($cantrack = partforum_tp_can_track_partforums($partforum)) {
+        $partforumtracked = partforum_tp_is_tracked($partforum);
     } else {
-        $forumtracked = false;
+        $partforumtracked = false;
     }
 
-    if ($forumtracked) {
+    if ($partforumtracked) {
         $unreads = partforum_get_discussions_unread($cm);
     } else {
         $unreads = array();
     }
 
     if ($displayformat == 'header') {
-		echo "<center>";
-        echo '<table cellspacing="0" class="forumheaderlist">';
+        echo '<table cellspacing="0" class="partforumheaderlist" >';
         echo '<thead>';
         echo '<tr>';
         echo '<th class="header topic" scope="col">'.get_string('discussion', 'partforum').'</th>';
@@ -5388,13 +5477,13 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
         }
         if (has_capability('mod/partforum:viewdiscussion', $context)) {
             echo '<th class="header replies" scope="col">'.get_string('replies', 'partforum').'</th>';
-            // If the forum can be tracked, display the unread column.
+            // If the partforum can be tracked, display the unread column.
             if ($cantrack) {
                 echo '<th class="header replies" scope="col">'.get_string('unread', 'partforum');
-                if ($forumtracked) {
+                if ($partforumtracked) {
                     echo '&nbsp;<a title="'.get_string('markallread', 'partforum').
                          '" href="'.$CFG->wwwroot.'/mod/partforum/markposts.php?f='.
-                         $forum->id.'&amp;mark=read&amp;returnpage=view.php">'.
+                         $partforum->id.'&amp;mark=read&amp;returnpage=view.php">'.
                          '<img src="'.$OUTPUT->pix_url('t/clear') . '" class="iconsmall" alt="'.get_string('markallread', 'partforum').'" /></a>';
                 }
                 echo '</th>';
@@ -5416,7 +5505,7 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
 
         // SPECIAL CASE: The front page can display a news item post to non-logged in users.
         // All posts are read in this case.
-        if (!$forumtracked) {
+        if (!$partforumtracked) {
             $discussion->unread = '-';
         } else if (empty($USER)) {
             $discussion->unread = 0;
@@ -5447,7 +5536,7 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
                 } else {
                     $group = -1;
                 }
-                partforum_print_discussion_header($discussion, $forum, $group, $strdatestring, $cantrack, $forumtracked,
+                partforum_print_discussion_header($discussion, $partforum, $group, $strdatestring, $cantrack, $partforumtracked,
                     $canviewparticipants, $context);
             break;
             default:
@@ -5456,13 +5545,13 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
                 if ($discussion->replies) {
                     $link = true;
                 } else {
-                    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
-                    $link = partforum_user_can_post($forum, $discussion, $USER, $cm, $course, $modcontext);
+                    $modcontext = context_module::instance($cm->id);
+                    $link = partforum_user_can_post($partforum, $discussion, $USER, $cm, $course, $modcontext);
                 }
 
-                $discussion->forum = $forum->id;
+                $discussion->partforum = $partforum->id;
 
-                partforum_print_post($discussion, $discussion, $forum, $cm, $course, $ownpost, 0, $link, false);
+                partforum_print_post($discussion, $discussion, $partforum, $cm, $course, $ownpost, 0, $link, false);
             break;
         }
     }
@@ -5470,28 +5559,27 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
     if ($displayformat == "header") {
         echo '</tbody>';
         echo '</table>';
-		echo "</center>";
     }
 
     if ($olddiscussionlink) {
-        if ($forum->type == 'news') {
+        if ($partforum->type == 'news') {
             $strolder = get_string('oldertopics', 'partforum');
         } else {
             $strolder = get_string('olderdiscussions', 'partforum');
         }
-        echo '<div class="forumolddiscuss">';
-        echo '<a href="'.$CFG->wwwroot.'/mod/partforum/view.php?f='.$forum->id.'&amp;showall=1">';
+        echo '<div class="partforumolddiscuss">';
+        echo '<a href="'.$CFG->wwwroot.'/mod/partforum/view.php?f='.$partforum->id.'&amp;showall=1">';
         echo $strolder.'</a> ...</div>';
     }
 
     if ($page != -1) { ///Show the paging bar
-        echo $OUTPUT->paging_bar($numdiscussions, $page, $perpage, "view.php?f=$forum->id");
+        echo $OUTPUT->paging_bar($numdiscussions, $page, $perpage, "view.php?f=$partforum->id");
     }
 }
 
 
 /**
- * Prints a forum discussion
+ * Prints a partforum discussion
  *
  * @uses CONTEXT_MODULE
  * @uses PARTFORUM_MODE_FLATNEWEST
@@ -5500,28 +5588,28 @@ function partforum_print_latest_discussions($course, $forum, $maxdiscussions=-1,
  * @uses PARTFORUM_MODE_NESTED
  * @param stdClass $course
  * @param stdClass $cm
- * @param stdClass $forum
+ * @param stdClass $partforum
  * @param stdClass $discussion
  * @param stdClass $post
  * @param int $mode
  * @param mixed $canreply
  * @param bool $canrate
  */
-function partforum_print_discussion($course, $cm, $forum, $discussion, $post, $mode, $canreply=NULL, $canrate=false) {
+function partforum_print_discussion($course, $cm, $partforum, $discussion, $post, $mode, $canreply=NULL, $canrate=false) {
     global $USER, $CFG;
 
     require_once($CFG->dirroot.'/rating/lib.php');
 
     $ownpost = (isloggedin() && $USER->id == $post->userid);
 
-    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $modcontext = context_module::instance($cm->id);
     if ($canreply === NULL) {
-        $reply = partforum_user_can_post($forum, $discussion, $USER, $cm, $course, $modcontext);
+        $reply = partforum_user_can_post($partforum, $discussion, $USER, $cm, $course, $modcontext);
     } else {
         $reply = $canreply;
     }
 
-    // $cm holds general cache for forum functions
+    // $cm holds general cache for partforum functions
     $cm->cache = new stdClass;
     $cm->cache->groups      = groups_get_all_groups($course->id, 0, $cm->groupingid);
     $cm->cache->usersgroups = array();
@@ -5535,8 +5623,8 @@ function partforum_print_discussion($course, $cm, $forum, $discussion, $post, $m
         $sort = "p.created ASC";
     }
 
-    $forumtracked = partforum_tp_is_tracked($forum);
-    $posts = partforum_get_all_discussion_posts($discussion->id, $sort, $forumtracked);
+    $partforumtracked = partforum_tp_is_tracked($partforum);
+    $posts = partforum_get_all_discussion_posts($discussion->id, $sort, $partforumtracked);
     $post = $posts[$post->id];
 
     foreach ($posts as $pid=>$p) {
@@ -5555,51 +5643,53 @@ function partforum_print_discussion($course, $cm, $forum, $discussion, $post, $m
     }
 
     //load ratings
-    if ($forum->assessed!=RATING_AGGREGATE_NONE && $forum->type!='participation') {
+    if ($partforum->assessed!=RATING_AGGREGATE_NONE && $partforum->type!='participation') {
         $ratingoptions = new stdClass;
         $ratingoptions->context = $modcontext;
         $ratingoptions->component = 'mod_partforum';
         $ratingoptions->ratingarea = 'post';
         $ratingoptions->items = $posts;
-        $ratingoptions->aggregate = $forum->assessed;//the aggregation method
-        $ratingoptions->scaleid = $forum->scale;
+        $ratingoptions->aggregate = $partforum->assessed;//the aggregation method
+        $ratingoptions->scaleid = $partforum->scale;
         $ratingoptions->userid = $USER->id;
-        if ($forum->type == 'single' or !$discussion->id) {
+        if ($partforum->type == 'single' or !$discussion->id) {
             $ratingoptions->returnurl = "$CFG->wwwroot/mod/partforum/view.php?id=$cm->id";
         } else {
             $ratingoptions->returnurl = "$CFG->wwwroot/mod/partforum/discuss.php?d=$discussion->id";
         }
-        $ratingoptions->assesstimestart = $forum->assesstimestart;
-        $ratingoptions->assesstimefinish = $forum->assesstimefinish;
+        $ratingoptions->assesstimestart = $partforum->assesstimestart;
+        $ratingoptions->assesstimefinish = $partforum->assesstimefinish;
 
         $rm = new rating_manager();
         $posts = $rm->get_ratings($ratingoptions);
     }
 
 
-    $post->forum = $forum->id;   // Add the forum id to the post object, later used by partforum_print_post
-    $post->forumtype = $forum->type;
+    $post->partforum = $partforum->id;   // Add the partforum id to the post object, later used by partforum_print_post
+    $post->partforumtype = $partforum->type;
 
     $post->subject = format_string($post->subject);
 
     $postread = !empty($post->postread);
+    
 
-    partforum_print_post($post, $discussion, $forum, $cm, $course, $ownpost, $reply, false,
-                         '', '', $postread, true, $forumtracked);
+
+    partforum_print_post($post, $discussion, $partforum, $cm, $course, $ownpost, $reply, false,
+                         '', '', $postread, true, $partforumtracked);
 
     switch ($mode) {
         case PARTFORUM_MODE_FLATOLDEST :
         case PARTFORUM_MODE_FLATNEWEST :
         default:
-            partforum_print_posts_flat($course, $cm, $forum, $discussion, $post, $mode, $reply, $forumtracked, $posts);
+            partforum_print_posts_flat($course, $cm, $partforum, $discussion, $post, $mode, $reply, $partforumtracked, $posts);
             break;
 
         case PARTFORUM_MODE_THREADED :
-            partforum_print_posts_threaded($course, $cm, $forum, $discussion, $post, 0, $reply, $forumtracked, $posts);
+            partforum_print_posts_threaded($course, $cm, $partforum, $discussion, $post, 0, $reply, $partforumtracked, $posts);
             break;
 
         case PARTFORUM_MODE_NESTED :
-            partforum_print_posts_nested($course, $cm, $forum, $discussion, $post, $reply, $forumtracked, $posts);
+            partforum_print_posts_nested($course, $cm, $partforum, $discussion, $post, $reply, $partforumtracked, $posts);
             break;
     }
 }
@@ -5611,16 +5701,16 @@ function partforum_print_discussion($course, $cm, $forum, $discussion, $post, $m
  * @uses PARTFORUM_MODE_FLATNEWEST
  * @param object $course
  * @param object $cm
- * @param object $forum
+ * @param object $partforum
  * @param object $discussion
  * @param object $post
  * @param object $mode
  * @param bool $reply
- * @param bool $forumtracked
+ * @param bool $partforumtracked
  * @param array $posts
  * @return void
  */
-function partforum_print_posts_flat($course, &$cm, $forum, $discussion, $post, $mode, $reply, $forumtracked, $posts) {
+function partforum_print_posts_flat($course, &$cm, $partforum, $discussion, $post, $mode, $reply, $partforumtracked, $posts) {
     global $USER, $CFG;
 
     $link  = false;
@@ -5640,8 +5730,8 @@ function partforum_print_posts_flat($course, &$cm, $forum, $discussion, $post, $
 
         $postread = !empty($post->postread);
 
-        partforum_print_post($post, $discussion, $forum, $cm, $course, $ownpost, $reply, $link,
-                             '', '', $postread, true, $forumtracked);
+        partforum_print_post($post, $discussion, $partforum, $cm, $course, $ownpost, $reply, $link,
+                             '', '', $postread, true, $partforumtracked);
     }
 }
 
@@ -5653,7 +5743,7 @@ function partforum_print_posts_flat($course, &$cm, $forum, $discussion, $post, $
  * @uses CONTEXT_MODULE
  * @return void
  */
-function partforum_print_posts_threaded($course, &$cm, $forum, $discussion, $parent, $depth, $reply, $forumtracked, $posts) {
+function partforum_print_posts_threaded($course, &$cm, $partforum, $discussion, $parent, $depth, $reply, $partforumtracked, $posts) {
     global $USER, $CFG;
 
     $link  = false;
@@ -5661,7 +5751,7 @@ function partforum_print_posts_threaded($course, &$cm, $forum, $discussion, $par
     if (!empty($posts[$parent->id]->children)) {
         $posts = $posts[$parent->id]->children;
 
-        $modcontext       = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $modcontext       = context_module::instance($cm->id);
         $canviewfullnames = has_capability('moodle/site:viewfullnames', $modcontext);
 
         foreach ($posts as $post) {
@@ -5673,25 +5763,30 @@ function partforum_print_posts_threaded($course, &$cm, $forum, $discussion, $par
 
                 $postread = !empty($post->postread);
 
-                partforum_print_post($post, $discussion, $forum, $cm, $course, $ownpost, $reply, $link,
-                                     '', '', $postread, true, $forumtracked);
+                partforum_print_post($post, $discussion, $partforum, $cm, $course, $ownpost, $reply, $link,
+                                     '', '', $postread, true, $partforumtracked);
             } else {
-                if (!partforum_user_can_see_post($forum, $discussion, $post, NULL, $cm)) {
+                if (!partforum_user_can_see_post($partforum, $discussion, $post, NULL, $cm)) {
                     echo "</div>\n";
                     continue;
                 }
+                
+            
                 $by = new stdClass();
-                $by->name = fullname($post, $canviewfullnames);
+                  $usermodified = new stdClass();
+               //  $usermodified =$post->userid;
+                 $usermodified = username_load_fields_from_object($usermodified, $post);
+                $by->name = fullname($usermodified, $canviewfullnames);
                 $by->date = userdate($post->modified);
 
-                if ($forumtracked) {
+                if ($partforumtracked) {
                     if (!empty($post->postread)) {
-                        $style = '<span class="forumthread read">';
+                        $style = '<span class="partforumthread read">';
                     } else {
-                        $style = '<span class="forumthread unread">';
+                        $style = '<span class="partforumthread unread">';
                     }
                 } else {
-                    $style = '<span class="forumthread">';
+                    $style = '<span class="partforumthread">';
                 }
                 echo $style."<a name=\"$post->id\"></a>".
                      "<a href=\"discuss.php?d=$post->discussion&amp;parent=$post->id\">".format_string($post->subject,true)."</a> ";
@@ -5699,7 +5794,7 @@ function partforum_print_posts_threaded($course, &$cm, $forum, $discussion, $par
                 echo "</span>";
             }
 
-            partforum_print_posts_threaded($course, $cm, $forum, $discussion, $post, $depth-1, $reply, $forumtracked, $posts);
+            partforum_print_posts_threaded($course, $cm, $partforum, $discussion, $post, $depth-1, $reply, $partforumtracked, $posts);
             echo "</div>\n";
         }
     }
@@ -5711,7 +5806,7 @@ function partforum_print_posts_threaded($course, &$cm, $forum, $discussion, $par
  * @global object
  * @return void
  */
-function partforum_print_posts_nested($course, &$cm, $forum, $discussion, $parent, $reply, $forumtracked, $posts) {
+function partforum_print_posts_nested($course, &$cm, $partforum, $discussion, $parent, $reply, $partforumtracked, $posts) {
     global $USER, $CFG;
 
     $link  = false;
@@ -5731,16 +5826,16 @@ function partforum_print_posts_nested($course, &$cm, $forum, $discussion, $paren
             $post->subject = format_string($post->subject);
             $postread = !empty($post->postread);
 
-            partforum_print_post($post, $discussion, $forum, $cm, $course, $ownpost, $reply, $link,
-                                 '', '', $postread, true, $forumtracked);
-            partforum_print_posts_nested($course, $cm, $forum, $discussion, $post, $reply, $forumtracked, $posts);
+            partforum_print_post($post, $discussion, $partforum, $cm, $course, $ownpost, $reply, $link,
+                                 '', '', $postread, true, $partforumtracked);
+            partforum_print_posts_nested($course, $cm, $partforum, $discussion, $post, $reply, $partforumtracked, $posts);
             echo "</div>\n";
         }
     }
 }
 
 /**
- * Returns all forum posts since a given time in specified forum.
+ * Returns all partforum posts since a given time in specified partforum.
  *
  * @todo Document this functions args
  * @global object
@@ -5778,12 +5873,12 @@ function partforum_get_recent_mod_activity(&$activities, &$index, $timestart, $c
         $groupjoin   = "";
     }
 
-    if (!$posts = $DB->get_records_sql("SELECT p.*, f.type AS forumtype, d.forum, d.groupid,
+    if (!$posts = $DB->get_records_sql("SELECT p.*, f.type AS partforumtype, d.partforum, d.groupid,
                                               d.timestart, d.timeend, d.userid AS duserid,
                                               u.firstname, u.lastname, u.email, u.picture, u.imagealt, u.email
                                          FROM {partforum_posts} p
                                               JOIN {partforum_discussions} d ON d.id = p.discussion
-                                              JOIN {partforum} f             ON f.id = d.forum
+                                              JOIN {partforum} f             ON f.id = d.partforum
                                               JOIN {user} u              ON u.id = p.userid
                                               $groupjoin
                                         WHERE p.created > ? AND f.id = ?
@@ -5793,7 +5888,7 @@ function partforum_get_recent_mod_activity(&$activities, &$index, $timestart, $c
     }
 
     $groupmode       = groups_get_activity_groupmode($cm, $course);
-    $cm_context      = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $cm_context      = context_module::instance($cm->id);
     $viewhiddentimed = has_capability('mod/partforum:viewhiddentimedposts', $cm_context);
     $accessallgroups = has_capability('moodle/site:accessallgroups', $cm_context);
 
@@ -5804,7 +5899,7 @@ function partforum_get_recent_mod_activity(&$activities, &$index, $timestart, $c
     $printposts = array();
     foreach ($posts as $post) {
 
-        if (!empty($CFG->forum_enabletimedposts) and $USER->id != $post->duserid
+        if (!empty($CFG->partforum_enabletimedposts) and $USER->id != $post->duserid
           and (($post->timestart > 0 and $post->timestart > time()) or ($post->timeend > 0 and $post->timeend < time()))) {
             if (!$viewhiddentimed) {
                 continue;
@@ -5878,7 +5973,7 @@ function partforum_print_recent_mod_activity($activity, $courseid, $detail, $mod
         $class = 'discussion';
     }
 
-    echo '<table border="0" cellpadding="3" cellspacing="0" class="forum-recent">';
+    echo '<table border="0" cellpadding="3" cellspacing="0" class="partforum-recent">';
 
     echo "<tr><td class=\"userpicture\" valign=\"top\">";
     echo $OUTPUT->user_picture($activity->user, array('courseid'=>$courseid));
@@ -5930,10 +6025,10 @@ function partforum_change_discussionid($postid, $discussionid) {
  * @global object
  * @global object
  * @param int $courseid
- * @param int $forumid
+ * @param int $partforumid
  * @return string
  */
-function partforum_update_subscriptions_button($courseid, $forumid) {
+function partforum_update_subscriptions_button($courseid, $partforumid) {
     global $CFG, $USER;
 
     if (!empty($USER->subscriptionsediting)) {
@@ -5945,7 +6040,7 @@ function partforum_update_subscriptions_button($courseid, $forumid) {
     }
 
     return "<form method=\"get\" action=\"$CFG->wwwroot/mod/partforum/subscribers.php\">".
-           "<input type=\"hidden\" name=\"id\" value=\"$forumid\" />".
+           "<input type=\"hidden\" name=\"id\" value=\"$partforumid\" />".
            "<input type=\"hidden\" name=\"edit\" value=\"$edit\" />".
            "<input type=\"submit\" value=\"$string\" /></form>";
 }
@@ -5957,7 +6052,7 @@ function partforum_update_subscriptions_button($courseid, $forumid) {
  * @return void
  */
 function partforum_user_enrolled($cp) {
-    $context = get_context_instance(CONTEXT_COURSE, $cp->courseid);
+    $context = context_course::instance($cp->courseid);
     partforum_add_user_default_subscriptions($cp->userid, $context);
 }
 
@@ -5970,7 +6065,7 @@ function partforum_user_enrolled($cp) {
  */
 function partforum_user_unenrolled($cp) {
     if ($cp->lastenrol) {
-        $context = get_context_instance(CONTEXT_COURSE, $cp->courseid);
+        $context = context_course::instance($cp->courseid);
         partforum_remove_user_subscriptions($cp->userid, $context);
         partforum_remove_user_tracking($cp->userid, $context);
     }
@@ -6000,7 +6095,7 @@ function partforum_add_user_default_subscriptions($userid, $context) {
         case CONTEXT_SYSTEM:   // For the whole site
              $rs = $DB->get_recordset('course',null,'','id');
              foreach ($rs as $course) {
-                 $subcontext = get_context_instance(CONTEXT_COURSE, $course->id);
+                 $subcontext = context_course::instance($course->id);
                  partforum_add_user_default_subscriptions($userid, $subcontext);
              }
              $rs->close();
@@ -6009,13 +6104,13 @@ function partforum_add_user_default_subscriptions($userid, $context) {
         case CONTEXT_COURSECAT:   // For a whole category
              $rs = $DB->get_recordset('course', array('category' => $context->instanceid),'','id');
              foreach ($rs as $course) {
-                 $subcontext = get_context_instance(CONTEXT_COURSE, $course->id);
+                 $subcontext = context_course::instance($course->id);
                  partforum_add_user_default_subscriptions($userid, $subcontext);
              }
              $rs->close();
              if ($categories = $DB->get_records('course_categories', array('parent' => $context->instanceid))) {
                  foreach ($categories as $category) {
-                     $subcontext = get_context_instance(CONTEXT_COURSECAT, $category->id);
+                     $subcontext = context_instance(CONTEXT_COURSECAT, $category->id);
                      partforum_add_user_default_subscriptions($userid, $subcontext);
                  }
              }
@@ -6025,14 +6120,14 @@ function partforum_add_user_default_subscriptions($userid, $context) {
         case CONTEXT_COURSE:   // For a whole course
              if (is_enrolled($context, $userid)) {
                 if ($course = $DB->get_record('course', array('id' => $context->instanceid))) {
-                     if ($forums = get_all_instances_in_course('partforum', $course, $userid, false)) {
-                         foreach ($forums as $forum) {
-                             if ($forum->forcesubscribe != PARTFORUM_INITIALSUBSCRIBE) {
+                     if ($partforums = get_all_instances_in_course('partforum', $course, $userid, false)) {
+                         foreach ($partforums as $partforum) {
+                             if ($partforum->forcesubscribe != PARTFORUM_INITIALSUBSCRIBE) {
                                  continue;
                              }
-                             if ($modcontext = get_context_instance(CONTEXT_MODULE, $forum->coursemodule)) {
+                             if ($modcontext = get_context_instance(CONTEXT_MODULE, $partforum->coursemodule)) {
                                  if (has_capability('mod/partforum:viewdiscussion', $modcontext, $userid)) {
-                                     partforum_subscribe($userid, $forum->id);
+                                     partforum_subscribe($userid, $partforum->id);
                                  }
                              }
                          }
@@ -6041,15 +6136,15 @@ function partforum_add_user_default_subscriptions($userid, $context) {
              }
              break;
 
-        case CONTEXT_MODULE:   // Just one forum
+        case CONTEXT_MODULE:   // Just one partforum
             if (has_capability('mod/partforum:initialsubscriptions', $context, $userid)) {
                  if ($cm = get_coursemodule_from_id('partforum', $context->instanceid)) {
-                     if ($forum = $DB->get_record('partforum', array('id' => $cm->instance))) {
-                         if ($forum->forcesubscribe != PARTFORUM_INITIALSUBSCRIBE) {
+                     if ($partforum = $DB->get_record('partforum', array('id' => $cm->instance))) {
+                         if ($partforum->forcesubscribe != PARTFORUM_INITIALSUBSCRIBE) {
                              continue;
                          }
                          if (has_capability('mod/partforum:viewdiscussion', $context, $userid)) {
-                             partforum_subscribe($userid, $forum->id);
+                             partforum_subscribe($userid, $partforum->id);
                          }
                      }
                  }
@@ -6085,16 +6180,16 @@ function partforum_remove_user_subscriptions($userid, $context) {
     switch ($context->contextlevel) {
 
         case CONTEXT_SYSTEM:   // For the whole site
-            // find all courses in which this user has a forum subscription
+            // find all courses in which this user has a partforum subscription
             if ($courses = $DB->get_records_sql("SELECT c.id
                                                   FROM {course} c,
                                                        {partforum_subscriptions} fs,
                                                        {partforum} f
-                                                       WHERE c.id = f.course AND f.id = fs.forum AND fs.userid = ?
+                                                       WHERE c.id = f.course AND f.id = fs.partforum AND fs.userid = ?
                                                        GROUP BY c.id", array($userid))) {
 
                 foreach ($courses as $course) {
-                    $subcontext = get_context_instance(CONTEXT_COURSE, $course->id);
+                    $subcontext = context_course::instance($course->id);
                     partforum_remove_user_subscriptions($userid, $subcontext);
                 }
             }
@@ -6103,7 +6198,7 @@ function partforum_remove_user_subscriptions($userid, $context) {
         case CONTEXT_COURSECAT:   // For a whole category
              if ($courses = $DB->get_records('course', array('category' => $context->instanceid), '', 'id')) {
                  foreach ($courses as $course) {
-                     $subcontext = get_context_instance(CONTEXT_COURSE, $course->id);
+                     $subcontext = context_course::instance($course->id);
                      partforum_remove_user_subscriptions($userid, $subcontext);
                  }
              }
@@ -6118,20 +6213,20 @@ function partforum_remove_user_subscriptions($userid, $context) {
         case CONTEXT_COURSE:   // For a whole course
             if (!is_enrolled($context, $userid)) {
                  if ($course = $DB->get_record('course', array('id' => $context->instanceid), 'id')) {
-                    // find all forums in which this user has a subscription, and its coursemodule id
-                    if ($forums = $DB->get_records_sql("SELECT f.id, cm.id as coursemodule
+                    // find all partforums in which this user has a subscription, and its coursemodule id
+                    if ($partforums = $DB->get_records_sql("SELECT f.id, cm.id as coursemodule
                                                          FROM {partforum} f,
                                                               {modules} m,
                                                               {course_modules} cm,
                                                               {partforum_subscriptions} fs
                                                         WHERE fs.userid = ? AND f.course = ?
-                                                              AND fs.forum = f.id AND cm.instance = f.id
+                                                              AND fs.partforum = f.id AND cm.instance = f.id
                                                               AND cm.module = m.id AND m.name = 'partforum'", array($userid, $context->instanceid))) {
 
-                         foreach ($forums as $forum) {
-                             if ($modcontext = get_context_instance(CONTEXT_MODULE, $forum->coursemodule)) {
+                         foreach ($partforums as $partforum) {
+                             if ($modcontext = get_context_instance(CONTEXT_MODULE, $partforum->coursemodule)) {
                                  if (!has_capability('mod/partforum:viewdiscussion', $modcontext, $userid)) {
-                                     partforum_unsubscribe($userid, $forum->id);
+                                     partforum_unsubscribe($userid, $partforum->id);
                                  }
                              }
                          }
@@ -6140,12 +6235,12 @@ function partforum_remove_user_subscriptions($userid, $context) {
             }
             break;
 
-        case CONTEXT_MODULE:   // Just one forum
+        case CONTEXT_MODULE:   // Just one partforum
             if (!is_enrolled($context, $userid)) {
                  if ($cm = get_coursemodule_from_id('partforum', $context->instanceid)) {
-                     if ($forum = $DB->get_record('partforum', array('id' => $cm->instance))) {
+                     if ($partforum = $DB->get_record('partforum', array('id' => $cm->instance))) {
                          if (!has_capability('mod/partforum:viewdiscussion', $context, $userid)) {
-                             partforum_unsubscribe($userid, $forum->id);
+                             partforum_unsubscribe($userid, $partforum->id);
                          }
                      }
                  }
@@ -6188,7 +6283,7 @@ function partforum_remove_user_tracking($userid, $context) {
                                                   FROM {course} c,
                                                        {partforum_read} fr,
                                                        {partforum} f
-                                                       WHERE c.id = f.course AND f.id = fr.forumid AND fr.userid = ?
+                                                       WHERE c.id = f.course AND f.id = fr.partforumid AND fr.userid = ?
                                                        GROUP BY c.id", array($userid))) {
 
                 $allcourses = $allcourses + $courses;
@@ -6197,12 +6292,12 @@ function partforum_remove_user_tracking($userid, $context) {
                                               FROM {course} c,
                                                    {partforum_track_prefs} ft,
                                                    {partforum} f
-                                             WHERE c.id = f.course AND f.id = ft.forumid AND ft.userid = ?", array($userid))) {
+                                             WHERE c.id = f.course AND f.id = ft.partforumid AND ft.userid = ?", array($userid))) {
 
                 $allcourses = $allcourses + $courses;
             }
             foreach ($allcourses as $course) {
-                $subcontext = get_context_instance(CONTEXT_COURSE, $course->id);
+                $subcontext = context_course::instance($course->id);
                 partforum_remove_user_tracking($userid, $subcontext);
             }
             break;
@@ -6210,7 +6305,7 @@ function partforum_remove_user_tracking($userid, $context) {
         case CONTEXT_COURSECAT:   // For a whole category
              if ($courses = $DB->get_records('course', array('category' => $context->instanceid), '', 'id')) {
                  foreach ($courses as $course) {
-                     $subcontext = get_context_instance(CONTEXT_COURSE, $course->id);
+                     $subcontext = context_course::instance($course->id);
                      partforum_remove_user_tracking($userid, $subcontext);
                  }
              }
@@ -6225,39 +6320,39 @@ function partforum_remove_user_tracking($userid, $context) {
         case CONTEXT_COURSE:   // For a whole course
             if (!is_enrolled($context, $userid)) {
                  if ($course = $DB->get_record('course', array('id' => $context->instanceid), 'id')) {
-                    // find all forums in which this user has reading tracked
-                    if ($forums = $DB->get_records_sql("SELECT DISTINCT f.id, cm.id as coursemodule
+                    // find all partforums in which this user has reading tracked
+                    if ($partforums = $DB->get_records_sql("SELECT DISTINCT f.id, cm.id as coursemodule
                                                      FROM {partforum} f,
                                                           {modules} m,
                                                           {course_modules} cm,
                                                           {partforum_read} fr
                                                     WHERE fr.userid = ? AND f.course = ?
-                                                          AND fr.forumid = f.id AND cm.instance = f.id
+                                                          AND fr.partforumid = f.id AND cm.instance = f.id
                                                           AND cm.module = m.id AND m.name = 'partforum'", array($userid, $context->instanceid))) {
 
-                         foreach ($forums as $forum) {
-                             if ($modcontext = get_context_instance(CONTEXT_MODULE, $forum->coursemodule)) {
+                         foreach ($partforums as $partforum) {
+                             if ($modcontext = get_context_instance(CONTEXT_MODULE, $partforum->coursemodule)) {
                                  if (!has_capability('mod/partforum:viewdiscussion', $modcontext, $userid)) {
-                                    partforum_tp_delete_read_records($userid, -1, -1, $forum->id);
+                                    partforum_tp_delete_read_records($userid, -1, -1, $partforum->id);
                                  }
                              }
                          }
                      }
 
-                    // find all forums in which this user has a disabled tracking
-                    if ($forums = $DB->get_records_sql("SELECT f.id, cm.id as coursemodule
+                    // find all partforums in which this user has a disabled tracking
+                    if ($partforums = $DB->get_records_sql("SELECT f.id, cm.id as coursemodule
                                                      FROM {partforum} f,
                                                           {modules} m,
                                                           {course_modules} cm,
                                                           {partforum_track_prefs} ft
                                                     WHERE ft.userid = ? AND f.course = ?
-                                                          AND ft.forumid = f.id AND cm.instance = f.id
+                                                          AND ft.partforumid = f.id AND cm.instance = f.id
                                                           AND cm.module = m.id AND m.name = 'partforum'", array($userid, $context->instanceid))) {
 
-                         foreach ($forums as $forum) {
-                             if ($modcontext = get_context_instance(CONTEXT_MODULE, $forum->coursemodule)) {
+                         foreach ($partforums as $partforum) {
+                             if ($modcontext = get_context_instance(CONTEXT_MODULE, $partforum->coursemodule)) {
                                  if (!has_capability('mod/partforum:viewdiscussion', $modcontext, $userid)) {
-                                    $DB->delete_records('partforum_track_prefs', array('userid' => $userid, 'forumid' => $forum->id));
+                                    $DB->delete_records('partforum_track_prefs', array('userid' => $userid, 'partforumid' => $partforum->id));
                                  }
                              }
                          }
@@ -6266,13 +6361,13 @@ function partforum_remove_user_tracking($userid, $context) {
             }
             break;
 
-        case CONTEXT_MODULE:   // Just one forum
+        case CONTEXT_MODULE:   // Just one partforum
             if (!is_enrolled($context, $userid)) {
                  if ($cm = get_coursemodule_from_id('partforum', $context->instanceid)) {
-                     if ($forum = $DB->get_record('partforum', array('id' => $cm->instance))) {
+                     if ($partforum = $DB->get_record('partforum', array('id' => $cm->instance))) {
                          if (!has_capability('mod/partforum:viewdiscussion', $context, $userid)) {
-                            $DB->delete_records('partforum_track_prefs', array('userid' => $userid, 'forumid' => $forum->id));
-                            partforum_tp_delete_read_records($userid, -1, -1, $forum->id);
+                            $DB->delete_records('partforum_track_prefs', array('userid' => $userid, 'partforumid' => $partforum->id));
+                            partforum_tp_delete_read_records($userid, -1, -1, $partforum->id);
                          }
                      }
                  }
@@ -6295,14 +6390,14 @@ function partforum_remove_user_tracking($userid, $context) {
 function partforum_tp_mark_posts_read($user, $postids) {
     global $CFG, $DB;
 
-    if (!partforum_tp_can_track_forums(false, $user)) {
+    if (!partforum_tp_can_track_partforums(false, $user)) {
         return true;
     }
 
     $status = true;
 
     $now = time();
-    $cutoffdate = $now - ($CFG->forum_oldpostdays * 24 * 3600);
+    $cutoffdate = $now - ($CFG->partforum_oldpostdays * 24 * 3600);
 
     if (empty($postids)) {
         return true;
@@ -6333,13 +6428,13 @@ function partforum_tp_mark_posts_read($user, $postids) {
         $params = array($user->id, $now, $now, $user->id, $cutoffdate);
         $params = array_merge($params, $new_params);
 
-        $sql = "INSERT INTO {partforum_read} (userid, postid, discussionid, forumid, firstread, lastread)
+        $sql = "INSERT INTO {partforum_read} (userid, postid, discussionid, partforumid, firstread, lastread)
 
-                SELECT ?, p.id, p.discussion, d.forum, ?, ?
+                SELECT ?, p.id, p.discussion, d.partforum, ?, ?
                   FROM {partforum_posts} p
                        JOIN {partforum_discussions} d       ON d.id = p.discussion
-                       JOIN {partforum} f                   ON f.id = d.forum
-                       LEFT JOIN {partforum_track_prefs} tf ON (tf.userid = ? AND tf.forumid = f.id)
+                       JOIN {partforum} f                   ON f.id = d.partforum
+                       LEFT JOIN {partforum_track_prefs} tf ON (tf.userid = ? AND tf.partforumid = f.id)
                  WHERE p.id $usql
                        AND p.modified >= ?
                        AND (f.trackingtype = ".PARTFORUM_TRACKING_ON."
@@ -6372,12 +6467,12 @@ function partforum_tp_add_read_record($userid, $postid) {
     global $CFG, $DB;
 
     $now = time();
-    $cutoffdate = $now - ($CFG->forum_oldpostdays * 24 * 3600);
+    $cutoffdate = $now - ($CFG->partforum_oldpostdays * 24 * 3600);
 
     if (!$DB->record_exists('partforum_read', array('userid' => $userid, 'postid' => $postid))) {
-        $sql = "INSERT INTO {partforum_read} (userid, postid, discussionid, forumid, firstread, lastread)
+        $sql = "INSERT INTO {partforum_read} (userid, postid, discussionid, partforumid, firstread, lastread)
 
-                SELECT ?, p.id, p.discussion, d.forum, ?, ?
+                SELECT ?, p.id, p.discussion, d.partforum, ?, ?
                   FROM {partforum_posts} p
                        JOIN {partforum_discussions} d ON d.id = p.discussion
                  WHERE p.id = ? AND p.modified >= ?";
@@ -6392,17 +6487,17 @@ function partforum_tp_add_read_record($userid, $postid) {
 }
 
 /**
- * Returns all records in the 'forum_read' table matching the passed keys, indexed
+ * Returns all records in the 'partforum_read' table matching the passed keys, indexed
  * by userid.
  *
  * @global object
  * @param int $userid
  * @param int $postid
  * @param int $discussionid
- * @param int $forumid
+ * @param int $partforumid
  * @return array
  */
-function partforum_tp_get_read_records($userid=-1, $postid=-1, $discussionid=-1, $forumid=-1) {
+function partforum_tp_get_read_records($userid=-1, $postid=-1, $discussionid=-1, $partforumid=-1) {
     global $DB;
     $select = '';
     $params = array();
@@ -6422,10 +6517,10 @@ function partforum_tp_get_read_records($userid=-1, $postid=-1, $discussionid=-1,
         $select .= 'discussionid = ?';
         $params[] = $discussionid;
     }
-    if ($forumid > -1) {
+    if ($partforumid > -1) {
         if ($select != '') $select .= ' AND ';
-        $select .= 'forumid = ?';
-        $params[] = $forumid;
+        $select .= 'partforumid = ?';
+        $params[] = $partforumid;
     }
 
     return $DB->get_records_select('partforum_read', $select, $params);
@@ -6450,7 +6545,7 @@ function partforum_tp_get_discussion_read_records($userid, $discussionid) {
  *
  * @return bool
  */
-function partforum_tp_mark_post_read($userid, $post, $forumid) {
+function partforum_tp_mark_post_read($userid, $post, $partforumid) {
     if (!partforum_tp_is_post_old($post)) {
         return partforum_tp_add_read_record($userid, $post->id);
     } else {
@@ -6459,22 +6554,22 @@ function partforum_tp_mark_post_read($userid, $post, $forumid) {
 }
 
 /**
- * Marks a whole forum as read, for a given user
+ * Marks a whole partforum as read, for a given user
  *
  * @global object
  * @global object
  * @param object $user
- * @param int $forumid
+ * @param int $partforumid
  * @param int|bool $groupid
  * @return bool
  */
-function partforum_tp_mark_forum_read($user, $forumid, $groupid=false) {
+function partforum_tp_mark_partforum_read($user, $partforumid, $groupid=false) {
     global $CFG, $DB;
 
-    $cutoffdate = time() - ($CFG->forum_oldpostdays*24*60*60);
+    $cutoffdate = time() - ($CFG->partforum_oldpostdays*24*60*60);
 
     $groupsel = "";
-    $params = array($user->id, $forumid, $cutoffdate);
+    $params = array($user->id, $partforumid, $cutoffdate);
 
     if ($groupid !== false) {
         $groupsel = " AND (d.groupid = ? OR d.groupid = -1)";
@@ -6485,7 +6580,7 @@ function partforum_tp_mark_forum_read($user, $forumid, $groupid=false) {
               FROM {partforum_posts} p
                    LEFT JOIN {partforum_discussions} d ON d.id = p.discussion
                    LEFT JOIN {partforum_read} r        ON (r.postid = p.id AND r.userid = ?)
-             WHERE d.forum = ?
+             WHERE d.partforum = ?
                    AND p.modified >= ? AND r.id is NULL
                    $groupsel";
 
@@ -6509,7 +6604,7 @@ function partforum_tp_mark_forum_read($user, $forumid, $groupid=false) {
 function partforum_tp_mark_discussion_read($user, $discussionid) {
     global $CFG, $DB;
 
-    $cutoffdate = time() - ($CFG->forum_oldpostdays*24*60*60);
+    $cutoffdate = time() - ($CFG->partforum_oldpostdays*24*60*60);
 
     $sql = "SELECT p.id
               FROM {partforum_posts} p
@@ -6547,7 +6642,7 @@ function partforum_tp_is_post_old($post, $time=null) {
     if (is_null($time)) {
         $time = time();
     }
-    return ($post->modified < ($time - ($CFG->forum_oldpostdays * 24 * 3600)));
+    return ($post->modified < ($time - ($CFG->partforum_oldpostdays * 24 * 3600)));
 }
 
 /**
@@ -6562,7 +6657,7 @@ function partforum_tp_is_post_old($post, $time=null) {
 function partforum_tp_count_discussion_read_records($userid, $discussionid) {
     global $CFG, $DB;
 
-    $cutoffdate = isset($CFG->forum_oldpostdays) ? (time() - ($CFG->forum_oldpostdays*24*60*60)) : 0;
+    $cutoffdate = isset($CFG->partforum_oldpostdays) ? (time() - ($CFG->partforum_oldpostdays*24*60*60)) : 0;
 
     $sql = 'SELECT COUNT(DISTINCT p.id) '.
            'FROM {partforum_discussions} d '.
@@ -6586,7 +6681,7 @@ function partforum_tp_count_discussion_read_records($userid, $discussionid) {
 function partforum_tp_count_discussion_unread_posts($userid, $discussionid) {
     global $CFG, $DB;
 
-    $cutoffdate = isset($CFG->forum_oldpostdays) ? (time() - ($CFG->forum_oldpostdays*24*60*60)) : 0;
+    $cutoffdate = isset($CFG->partforum_oldpostdays) ? (time() - ($CFG->partforum_oldpostdays*24*60*60)) : 0;
 
     $sql = 'SELECT COUNT(p.id) '.
            'FROM {partforum_posts} p '.
@@ -6598,19 +6693,19 @@ function partforum_tp_count_discussion_unread_posts($userid, $discussionid) {
 }
 
 /**
- * Returns the count of posts for the provided forum and [optionally] group.
+ * Returns the count of posts for the provided partforum and [optionally] group.
  * @global object
  * @global object
- * @param int $forumid
+ * @param int $partforumid
  * @param int|bool $groupid
  * @return int
  */
-function partforum_tp_count_forum_posts($forumid, $groupid=false) {
+function partforum_tp_count_partforum_posts($partforumid, $groupid=false) {
     global $CFG, $DB;
-    $params = array($forumid);
+    $params = array($partforumid);
     $sql = 'SELECT COUNT(*) '.
            'FROM {partforum_posts} fp,{partforum_discussions} fd '.
-           'WHERE fd.forum = ? AND fp.discussion = fd.id';
+           'WHERE fd.partforum = ? AND fp.discussion = fd.id';
     if ($groupid !== false) {
         $sql .= ' AND (fd.groupid = ? OR fd.groupid = -1)';
         $params[] = $groupid;
@@ -6622,21 +6717,21 @@ function partforum_tp_count_forum_posts($forumid, $groupid=false) {
 }
 
 /**
- * Returns the count of records for the provided user and forum and [optionally] group.
+ * Returns the count of records for the provided user and partforum and [optionally] group.
  * @global object
  * @global object
  * @param int $userid
- * @param int $forumid
+ * @param int $partforumid
  * @param int|bool $groupid
  * @return int
  */
-function partforum_tp_count_forum_read_records($userid, $forumid, $groupid=false) {
+function partforum_tp_count_partforum_read_records($userid, $partforumid, $groupid=false) {
     global $CFG, $DB;
 
-    $cutoffdate = time() - ($CFG->forum_oldpostdays*24*60*60);
+    $cutoffdate = time() - ($CFG->partforum_oldpostdays*24*60*60);
 
     $groupsel = '';
-    $params = array($userid, $forumid, $cutoffdate);
+    $params = array($userid, $partforumid, $cutoffdate);
     if ($groupid !== false) {
         $groupsel = "AND (d.groupid = ? OR d.groupid = -1)";
         $params[] = $groupid;
@@ -6646,7 +6741,7 @@ function partforum_tp_count_forum_read_records($userid, $forumid, $groupid=false
               FROM  {partforum_posts} p
                     JOIN {partforum_discussions} d ON d.id = p.discussion
                     LEFT JOIN {partforum_read} r   ON (r.postid = p.id AND r.userid= ?)
-              WHERE d.forum = ?
+              WHERE d.partforum = ?
                     AND (p.modified < $cutoffdate OR (p.modified >= ? AND r.id IS NOT NULL))
                     $groupsel";
 
@@ -6667,10 +6762,10 @@ function partforum_tp_get_course_unread_posts($userid, $courseid) {
     global $CFG, $DB;
 
     $now = round(time(), -2); // db cache friendliness
-    $cutoffdate = $now - ($CFG->forum_oldpostdays*24*60*60);
+    $cutoffdate = $now - ($CFG->partforum_oldpostdays*24*60*60);
     $params = array($userid, $userid, $courseid, $cutoffdate);
 
-    if (!empty($CFG->forum_enabletimedposts)) {
+    if (!empty($CFG->partforum_enabletimedposts)) {
         $timedsql = "AND d.timestart < ? AND (d.timeend = 0 OR d.timeend > ?)";
         $params[] = $now;
         $params[] = $now;
@@ -6681,10 +6776,10 @@ function partforum_tp_get_course_unread_posts($userid, $courseid) {
     $sql = "SELECT f.id, COUNT(p.id) AS unread
               FROM {partforum_posts} p
                    JOIN {partforum_discussions} d       ON d.id = p.discussion
-                   JOIN {partforum} f                   ON f.id = d.forum
+                   JOIN {partforum} f                   ON f.id = d.partforum
                    JOIN {course} c                  ON c.id = f.course
                    LEFT JOIN {partforum_read} r         ON (r.postid = p.id AND r.userid = ?)
-                   LEFT JOIN {partforum_track_prefs} tf ON (tf.userid = ? AND tf.forumid = f.id)
+                   LEFT JOIN {partforum_track_prefs} tf ON (tf.userid = ? AND tf.partforumid = f.id)
              WHERE f.course = ?
                    AND p.modified >= ? AND r.id is NULL
                    AND (f.trackingtype = ".PARTFORUM_TRACKING_ON."
@@ -6700,7 +6795,7 @@ function partforum_tp_get_course_unread_posts($userid, $courseid) {
 }
 
 /**
- * Returns the count of records for the provided user and forum and [optionally] group.
+ * Returns the count of records for the provided user and partforum and [optionally] group.
  *
  * @global object
  * @global object
@@ -6709,12 +6804,12 @@ function partforum_tp_get_course_unread_posts($userid, $courseid) {
  * @param object $course
  * @return int
  */
-function partforum_tp_count_forum_unread_posts($cm, $course) {
+function partforum_tp_count_partforum_unread_posts($cm, $course) {
     global $CFG, $USER, $DB;
 
     static $readcache = array();
 
-    $forumid = $cm->instance;
+    $partforumid = $cm->instance;
 
     if (!isset($readcache[$course->id])) {
         $readcache[$course->id] = array();
@@ -6725,7 +6820,7 @@ function partforum_tp_count_forum_unread_posts($cm, $course) {
         }
     }
 
-    if (empty($readcache[$course->id][$forumid])) {
+    if (empty($readcache[$course->id][$partforumid])) {
         // no need to check group mode ;-)
         return 0;
     }
@@ -6733,11 +6828,11 @@ function partforum_tp_count_forum_unread_posts($cm, $course) {
     $groupmode = groups_get_activity_groupmode($cm, $course);
 
     if ($groupmode != SEPARATEGROUPS) {
-        return $readcache[$course->id][$forumid];
+        return $readcache[$course->id][$partforumid];
     }
 
-    if (has_capability('moodle/site:accessallgroups', get_context_instance(CONTEXT_MODULE, $cm->id))) {
-        return $readcache[$course->id][$forumid];
+    if (has_capability('moodle/site:accessallgroups', context_module::instance($cm->id))) {
+        return $readcache[$course->id][$partforumid];
     }
 
     require_once($CFG->dirroot.'/course/lib.php');
@@ -6759,10 +6854,10 @@ function partforum_tp_count_forum_unread_posts($cm, $course) {
     list ($groups_sql, $groups_params) = $DB->get_in_or_equal($mygroups);
 
     $now = round(time(), -2); // db cache friendliness
-    $cutoffdate = $now - ($CFG->forum_oldpostdays*24*60*60);
-    $params = array($USER->id, $forumid, $cutoffdate);
+    $cutoffdate = $now - ($CFG->partforum_oldpostdays*24*60*60);
+    $params = array($USER->id, $partforumid, $cutoffdate);
 
-    if (!empty($CFG->forum_enabletimedposts)) {
+    if (!empty($CFG->partforum_enabletimedposts)) {
         $timedsql = "AND d.timestart < ? AND (d.timeend = 0 OR d.timeend > ?)";
         $params[] = $now;
         $params[] = $now;
@@ -6776,7 +6871,7 @@ function partforum_tp_count_forum_unread_posts($cm, $course) {
               FROM {partforum_posts} p
                    JOIN {partforum_discussions} d ON p.discussion = d.id
                    LEFT JOIN {partforum_read} r   ON (r.postid = p.id AND r.userid = ?)
-             WHERE d.forum = ?
+             WHERE d.partforum = ?
                    AND p.modified >= ? AND r.id is NULL
                    $timedsql
                    AND d.groupid $groups_sql";
@@ -6791,10 +6886,10 @@ function partforum_tp_count_forum_unread_posts($cm, $course) {
  * @param int $userid
  * @param int $postid
  * @param int $discussionid
- * @param int $forumid
+ * @param int $partforumid
  * @return bool
  */
-function partforum_tp_delete_read_records($userid=-1, $postid=-1, $discussionid=-1, $forumid=-1) {
+function partforum_tp_delete_read_records($userid=-1, $postid=-1, $discussionid=-1, $partforumid=-1) {
     global $DB;
     $params = array();
 
@@ -6814,10 +6909,10 @@ function partforum_tp_delete_read_records($userid=-1, $postid=-1, $discussionid=
         $select .= 'discussionid = ?';
         $params[] = $discussionid;
     }
-    if ($forumid > -1) {
+    if ($partforumid > -1) {
         if ($select != '') $select .= ' AND ';
-        $select .= 'forumid = ?';
-        $params[] = $forumid;
+        $select .= 'partforumid = ?';
+        $params[] = $partforumid;
     }
     if ($select == '') {
         return false;
@@ -6827,29 +6922,29 @@ function partforum_tp_delete_read_records($userid=-1, $postid=-1, $discussionid=
     }
 }
 /**
- * Get a list of forums not tracked by the user.
+ * Get a list of partforums not tracked by the user.
  *
  * @global object
  * @global object
  * @param int $userid The id of the user to use.
  * @param int $courseid The id of the course being checked.
- * @return mixed An array indexed by forum id, or false.
+ * @return mixed An array indexed by partforum id, or false.
  */
-function partforum_tp_get_untracked_forums($userid, $courseid) {
+function partforum_tp_get_untracked_partforums($userid, $courseid) {
     global $CFG, $DB;
 
     $sql = "SELECT f.id
               FROM {partforum} f
-                   LEFT JOIN {partforum_track_prefs} ft ON (ft.forumid = f.id AND ft.userid = ?)
+                   LEFT JOIN {partforum_track_prefs} ft ON (ft.partforumid = f.id AND ft.userid = ?)
              WHERE f.course = ?
                    AND (f.trackingtype = ".PARTFORUM_TRACKING_OFF."
                         OR (f.trackingtype = ".PARTFORUM_TRACKING_OPTIONAL." AND ft.id IS NOT NULL))";
 
-    if ($forums = $DB->get_records_sql($sql, array($userid, $courseid))) {
-        foreach ($forums as $forum) {
-            $forums[$forum->id] = $forum;
+    if ($partforums = $DB->get_records_sql($sql, array($userid, $courseid))) {
+        foreach ($partforums as $partforum) {
+            $partforums[$partforum->id] = $partforum;
         }
-        return $forums;
+        return $partforums;
 
     } else {
         return array();
@@ -6857,23 +6952,23 @@ function partforum_tp_get_untracked_forums($userid, $courseid) {
 }
 
 /**
- * Determine if a user can track forums and optionally a particular forum.
- * Checks the site settings, the user settings and the forum settings (if
+ * Determine if a user can track partforums and optionally a particular partforum.
+ * Checks the site settings, the user settings and the partforum settings (if
  * requested).
  *
  * @global object
  * @global object
  * @global object
- * @param mixed $forum The forum object to test, or the int id (optional).
+ * @param mixed $partforum The partforum object to test, or the int id (optional).
  * @param mixed $userid The user object to check for (optional).
  * @return boolean
  */
-function partforum_tp_can_track_forums($forum=false, $user=false) {
+function partforum_tp_can_track_partforums($partforum=false, $user=false) {
     global $USER, $CFG, $DB;
 
     // if possible, avoid expensive
     // queries
-    if (empty($CFG->forum_trackreadposts)) {
+    if (empty($CFG->partforum_trackreadposts)) {
         return false;
     }
 
@@ -6885,36 +6980,36 @@ function partforum_tp_can_track_forums($forum=false, $user=false) {
         return false;
     }
 
-    if ($forum === false) {
-        // general abitily to track forums
-        return (bool)$user->trackforums;
+    if ($partforum === false) {
+        // general abitily to track partforums
+        return (bool)$user->trackpartforums;
     }
 
 
     // Work toward always passing an object...
-    if (is_numeric($forum)) {
-        debugging('Better use proper forum object.', DEBUG_DEVELOPER);
-        $forum = $DB->get_record('partforum', array('id' => $forum), '', 'id,trackingtype');
+    if (is_numeric($partforum)) {
+        debugging('Better use proper partforum object.', DEBUG_DEVELOPER);
+        $partforum = $DB->get_record('partforum', array('id' => $partforum), '', 'id,trackingtype');
     }
 
-    $forumallows = ($forum->trackingtype == PARTFORUM_TRACKING_OPTIONAL);
-    $forumforced = ($forum->trackingtype == PARTFORUM_TRACKING_ON);
+    $partforumallows = ($partforum->trackingtype == PARTFORUM_TRACKING_OPTIONAL);
+    $partforumforced = ($partforum->trackingtype == PARTFORUM_TRACKING_ON);
 
-    return ($forumforced || $forumallows)  && !empty($user->trackforums);
+    return ($partforumforced || $partforumallows)  && !empty($user->trackpartforums);
 }
 
 /**
- * Tells whether a specific forum is tracked by the user. A user can optionally
+ * Tells whether a specific partforum is tracked by the user. A user can optionally
  * be specified. If not specified, the current user is assumed.
  *
  * @global object
  * @global object
  * @global object
- * @param mixed $forum If int, the id of the forum being checked; if object, the forum object
+ * @param mixed $partforum If int, the id of the partforum being checked; if object, the partforum object
  * @param int $userid The id of the user being checked (optional).
  * @return boolean
  */
-function partforum_tp_is_tracked($forum, $user=false) {
+function partforum_tp_is_tracked($partforum, $user=false) {
     global $USER, $CFG, $DB;
 
     if ($user === false) {
@@ -6926,64 +7021,64 @@ function partforum_tp_is_tracked($forum, $user=false) {
     }
 
     // Work toward always passing an object...
-    if (is_numeric($forum)) {
-        debugging('Better use proper forum object.', DEBUG_DEVELOPER);
-        $forum = $DB->get_record('partforum', array('id' => $forum));
+    if (is_numeric($partforum)) {
+        debugging('Better use proper partforum object.', DEBUG_DEVELOPER);
+        $partforum = $DB->get_record('partforum', array('id' => $partforum));
     }
 
-    if (!partforum_tp_can_track_forums($forum, $user)) {
+    if (!partforum_tp_can_track_partforums($partforum, $user)) {
         return false;
     }
 
-    $forumallows = ($forum->trackingtype == PARTFORUM_TRACKING_OPTIONAL);
-    $forumforced = ($forum->trackingtype == PARTFORUM_TRACKING_ON);
+    $partforumallows = ($partforum->trackingtype == PARTFORUM_TRACKING_OPTIONAL);
+    $partforumforced = ($partforum->trackingtype == PARTFORUM_TRACKING_ON);
 
-    return $forumforced ||
-           ($forumallows && $DB->get_record('partforum_track_prefs', array('userid' => $user->id, 'forumid' => $forum->id)) === false);
+    return $partforumforced ||
+           ($partforumallows && $DB->get_record('partforum_track_prefs', array('userid' => $user->id, 'partforumid' => $partforum->id)) === false);
 }
 
 /**
  * @global object
  * @global object
- * @param int $forumid
+ * @param int $partforumid
  * @param int $userid
  */
-function partforum_tp_start_tracking($forumid, $userid=false) {
+function partforum_tp_start_tracking($partforumid, $userid=false) {
     global $USER, $DB;
 
     if ($userid === false) {
         $userid = $USER->id;
     }
 
-    return $DB->delete_records('partforum_track_prefs', array('userid' => $userid, 'forumid' => $forumid));
+    return $DB->delete_records('partforum_track_prefs', array('userid' => $userid, 'partforumid' => $partforumid));
 }
 
 /**
  * @global object
  * @global object
- * @param int $forumid
+ * @param int $partforumid
  * @param int $userid
  */
-function partforum_tp_stop_tracking($forumid, $userid=false) {
+function partforum_tp_stop_tracking($partforumid, $userid=false) {
     global $USER, $DB;
 
     if ($userid === false) {
         $userid = $USER->id;
     }
 
-    if (!$DB->record_exists('partforum_track_prefs', array('userid' => $userid, 'forumid' => $forumid))) {
+    if (!$DB->record_exists('partforum_track_prefs', array('userid' => $userid, 'partforumid' => $partforumid))) {
         $track_prefs = new stdClass();
         $track_prefs->userid = $userid;
-        $track_prefs->forumid = $forumid;
+        $track_prefs->partforumid = $partforumid;
         $DB->insert_record('partforum_track_prefs', $track_prefs);
     }
 
-    return partforum_tp_delete_read_records($userid, -1, -1, $forumid);
+    return partforum_tp_delete_read_records($userid, -1, -1, $partforumid);
 }
 
 
 /**
- * Clean old records from the forum_read table.
+ * Clean old records from the partforum_read table.
  * @global object
  * @global object
  * @return void
@@ -6991,11 +7086,11 @@ function partforum_tp_stop_tracking($forumid, $userid=false) {
 function partforum_tp_clean_read_records() {
     global $CFG, $DB;
 
-    if (!isset($CFG->forum_oldpostdays)) {
+    if (!isset($CFG->partforum_oldpostdays)) {
         return;
     }
-// Look for records older than the cutoffdate that are still in the forum_read table.
-    $cutoffdate = time() - ($CFG->forum_oldpostdays*24*60*60);
+// Look for records older than the cutoffdate that are still in the partforum_read table.
+    $cutoffdate = time() - ($CFG->partforum_oldpostdays*24*60*60);
 
     //first get the oldest tracking present - we need tis to speedup the next delete query
     $sql = "SELECT MIN(fp.modified) AS first
@@ -7058,7 +7153,7 @@ function partforum_discussion_update_last_post($discussionid) {
  * @return array
  */
 function partforum_get_view_actions() {
-    return array('view discussion', 'search', 'partforum', 'forums', 'subscribers', 'view forum');
+    return array('view discussion', 'search', 'partforum', 'partforums', 'subscribers', 'view partforum');
 }
 
 /**
@@ -7069,7 +7164,7 @@ function partforum_get_post_actions() {
 }
 
 /**
- * this function returns all the separate forum ids, given a courseid
+ * this function returns all the separate partforum ids, given a courseid
  *
  * @global object
  * @global object
@@ -7079,13 +7174,13 @@ function partforum_get_post_actions() {
 function partforum_get_separate_modules($courseid) {
 
     global $CFG,$DB;
-    $forummodule = $DB->get_record("modules", array("name" => "partforum"));
+    $partforummodule = $DB->get_record("modules", array("name" => "partforum"));
 
     $sql = 'SELECT f.id, f.id FROM {partforum} f, {course_modules} cm WHERE
            f.id = cm.instance AND cm.module =? AND cm.visible = 1 AND cm.course = ?
            AND cm.groupmode ='.SEPARATEGROUPS;
 
-    return $DB->get_records_sql($sql, array($forummodule->id, $courseid));
+    return $DB->get_records_sql($sql, array($partforummodule->id, $courseid));
 
 }
 
@@ -7093,58 +7188,58 @@ function partforum_get_separate_modules($courseid) {
  * @global object
  * @global object
  * @global object
- * @param object $forum
+ * @param object $partforum
  * @param object $cm
  * @return bool
  */
-function partforum_check_throttling($forum, $cm=null) {
+function partforum_check_throttling($partforum, $cm=null) {
     global $USER, $CFG, $DB, $OUTPUT;
 
-    if (is_numeric($forum)) {
-        $forum = $DB->get_record('partforum',array('id'=>$forum));
+    if (is_numeric($partforum)) {
+        $partforum = $DB->get_record('partforum',array('id'=>$partforum));
     }
-    if (!is_object($forum)) {
+    if (!is_object($partforum)) {
         return false;  // this is broken.
     }
 
-    if (empty($forum->blockafter)) {
+    if (empty($partforum->blockafter)) {
         return true;
     }
 
-    if (empty($forum->blockperiod)) {
+    if (empty($partforum->blockperiod)) {
         return true;
     }
 
     if (!$cm) {
-        if (!$cm = get_coursemodule_from_instance('partforum', $forum->id, $forum->course)) {
+        if (!$cm = get_coursemodule_from_instance('partforum', $partforum->id, $partforum->course)) {
             print_error('invalidcoursemodule');
         }
     }
 
-    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $modcontext = context_module::instance($cm->id);
     if(has_capability('mod/partforum:postwithoutthrottling', $modcontext)) {
         return true;
     }
 
     // get the number of posts in the last period we care about
     $timenow = time();
-    $timeafter = $timenow - $forum->blockperiod;
+    $timeafter = $timenow - $partforum->blockperiod;
 
     $numposts = $DB->count_records_sql('SELECT COUNT(p.id) FROM {partforum_posts} p'
                                       .' JOIN {partforum_discussions} d'
-                                      .' ON p.discussion = d.id WHERE d.forum = ?'
-                                      .' AND p.userid = ? AND p.created > ?', array($forum->id, $USER->id, $timeafter));
+                                      .' ON p.discussion = d.id WHERE d.partforum = ?'
+                                      .' AND p.userid = ? AND p.created > ?', array($partforum->id, $USER->id, $timeafter));
 
     $a = new stdClass();
-    $a->blockafter = $forum->blockafter;
+    $a->blockafter = $partforum->blockafter;
     $a->numposts = $numposts;
-    $a->blockperiod = get_string('secondstotime'.$forum->blockperiod);
+    $a->blockperiod = get_string('secondstotime'.$partforum->blockperiod);
 
-    if ($forum->blockafter <= $numposts) {
-        print_error('forumblockingtoomanyposts', 'error', $CFG->wwwroot.'/mod/partforum/view.php?f='.$forum->id, $a);
+    if ($partforum->blockafter <= $numposts) {
+        print_error('partforumblockingtoomanyposts', 'error', $CFG->wwwroot.'/mod/partforum/view.php?f='.$partforum->id, $a);
     }
-    if ($forum->warnafter <= $numposts) {
-        echo $OUTPUT->notification(get_string('forumblockingalmosttoomanyposts','partforum',$a));
+    if ($partforum->warnafter <= $numposts) {
+        echo $OUTPUT->notification(get_string('partforumblockingalmosttoomanyposts','partforum',$a));
     }
 
 
@@ -7173,16 +7268,16 @@ function partforum_reset_gradebook($courseid, $type='') {
               FROM {partforum} f, {course_modules} cm, {modules} m
              WHERE m.name='partforum' AND m.id=cm.module AND cm.instance=f.id AND f.course=? $wheresql";
 
-    if ($forums = $DB->get_records_sql($sql, $params)) {
-        foreach ($forums as $forum) {
-            partforum_grade_item_update($forum, 'reset');
+    if ($partforums = $DB->get_records_sql($sql, $params)) {
+        foreach ($partforums as $partforum) {
+            partforum_grade_item_update($partforum, 'reset');
         }
     }
 }
 
 /**
  * This function is used by the reset_course_userdata function in moodlelib.
- * This function will remove all posts from the specified forum
+ * This function will remove all posts from the specified partforum
  * and clean up any related data.
  *
  * @global object
@@ -7201,42 +7296,42 @@ function partforum_reset_userdata($data) {
 
     $removeposts = false;
     $typesql     = "";
-    if (!empty($data->reset_forum_all)) {
+    if (!empty($data->reset_partforum_all)) {
         $removeposts = true;
-        $typesstr    = get_string('resetforumsall', 'partforum');
+        $typesstr    = get_string('resetpartforumsall', 'partforum');
         $types       = array();
-    } else if (!empty($data->reset_forum_types)){
+    } else if (!empty($data->reset_partforum_types)){
         $removeposts = true;
         $typesql     = "";
         $types       = array();
-        $forum_types_all = partforum_get_forum_types_all();
-        foreach ($data->reset_forum_types as $type) {
-            if (!array_key_exists($type, $forum_types_all)) {
+        $partforum_types_all = partforum_get_partforum_types_all();
+        foreach ($data->reset_partforum_types as $type) {
+            if (!array_key_exists($type, $partforum_types_all)) {
                 continue;
             }
             $typesql .= " AND f.type=?";
-            $types[] = $forum_types_all[$type];
+            $types[] = $partforum_types_all[$type];
             $params[] = $type;
         }
-        $typesstr = get_string('resetforums', 'partforum').': '.implode(', ', $types);
+        $typesstr = get_string('resetpartforums', 'partforum').': '.implode(', ', $types);
     }
     $alldiscussionssql = "SELECT fd.id
                             FROM {partforum_discussions} fd, {partforum} f
-                           WHERE f.course=? AND f.id=fd.forum";
+                           WHERE f.course=? AND f.id=fd.partforum";
 
-    $allforumssql      = "SELECT f.id
+    $allpartforumssql      = "SELECT f.id
                             FROM {partforum} f
                            WHERE f.course=?";
 
     $allpostssql       = "SELECT fp.id
                             FROM {partforum_posts} fp, {partforum_discussions} fd, {partforum} f
-                           WHERE f.course=? AND f.id=fd.forum AND fd.id=fp.discussion";
+                           WHERE f.course=? AND f.id=fd.partforum AND fd.id=fp.discussion";
 
-    $forumssql = $forums = $rm = null;
+    $partforumssql = $partforums = $rm = null;
 
-    if( $removeposts || !empty($data->reset_forum_ratings) ) {
-        $forumssql      = "$allforumssql $typesql";
-        $forums = $forums = $DB->get_records_sql($forumssql, $params);
+    if( $removeposts || !empty($data->reset_partforum_ratings) ) {
+        $partforumssql      = "$allpartforumssql $typesql";
+        $partforums = $partforums = $DB->get_records_sql($partforumssql, $params);
         $rm = new rating_manager();;
         $ratingdeloptions = new stdClass;
         $ratingdeloptions->component = 'mod_partforum';
@@ -7249,12 +7344,12 @@ function partforum_reset_userdata($data) {
 
         // now get rid of all attachments
         $fs = get_file_storage();
-        if ($forums) {
-            foreach ($forums as $forumid=>$unused) {
-                if (!$cm = get_coursemodule_from_instance('partforum', $forumid)) {
+        if ($partforums) {
+            foreach ($partforums as $partforumid=>$unused) {
+                if (!$cm = get_coursemodule_from_instance('partforum', $partforumid)) {
                     continue;
                 }
-                $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+                $context = context_module::instance($cm->id);
                 $fs->delete_area_files($context->id, 'mod_partforum', 'attachment');
                 $fs->delete_area_files($context->id, 'mod_partforum', 'post');
 
@@ -7265,20 +7360,20 @@ function partforum_reset_userdata($data) {
         }
 
         // first delete all read flags
-        $DB->delete_records_select('partforum_read', "forumid IN ($forumssql)", $params);
+        $DB->delete_records_select('partforum_read', "partforumid IN ($partforumssql)", $params);
 
         // remove tracking prefs
-        $DB->delete_records_select('partforum_track_prefs', "forumid IN ($forumssql)", $params);
+        $DB->delete_records_select('partforum_track_prefs', "partforumid IN ($partforumssql)", $params);
 
         // remove posts from queue
         $DB->delete_records_select('partforum_queue', "discussionid IN ($discussionssql)", $params);
 
-        // all posts - initial posts must be kept in single simple discussion forums
+        // all posts - initial posts must be kept in single simple discussion partforums
         $DB->delete_records_select('partforum_posts', "discussion IN ($discussionssql) AND parent <> 0", $params); // first all children
         $DB->delete_records_select('partforum_posts', "discussion IN ($discussionssql AND f.type <> 'single') AND parent = 0", $params); // now the initial posts for non single simple
 
-        // finally all discussions except single simple forums
-        $DB->delete_records_select('partforum_discussions', "forum IN ($forumssql AND f.type <> 'single')", $params);
+        // finally all discussions except single simple partforums
+        $DB->delete_records_select('partforum_discussions', "partforum IN ($partforumssql AND f.type <> 'single')", $params);
 
         // remove all grades from gradebook
         if (empty($data->reset_gradebook_grades)) {
@@ -7294,14 +7389,14 @@ function partforum_reset_userdata($data) {
         $status[] = array('component'=>$componentstr, 'item'=>$typesstr, 'error'=>false);
     }
 
-    // remove all ratings in this course's forums
-    if (!empty($data->reset_forum_ratings)) {
-        if ($forums) {
-            foreach ($forums as $forumid=>$unused) {
-                if (!$cm = get_coursemodule_from_instance('partforum', $forumid)) {
+    // remove all ratings in this course's partforums
+    if (!empty($data->reset_partforum_ratings)) {
+        if ($partforums) {
+            foreach ($partforums as $partforumid=>$unused) {
+                if (!$cm = get_coursemodule_from_instance('partforum', $partforumid)) {
                     continue;
                 }
-                $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+                $context = context_module::instance($cm->id);
 
                 //remove ratings
                 $ratingdeloptions->contextid = $context->id;
@@ -7316,14 +7411,14 @@ function partforum_reset_userdata($data) {
     }
 
     // remove all subscriptions unconditionally - even for users still enrolled in course
-    if (!empty($data->reset_forum_subscriptions)) {
-        $DB->delete_records_select('partforum_subscriptions', "forum IN ($allforumssql)", $params);
+    if (!empty($data->reset_partforum_subscriptions)) {
+        $DB->delete_records_select('partforum_subscriptions', "partforum IN ($allpartforumssql)", $params);
         $status[] = array('component'=>$componentstr, 'item'=>get_string('resetsubscriptions','partforum'), 'error'=>false);
     }
 
     // remove all tracking prefs unconditionally - even for users still enrolled in course
-    if (!empty($data->reset_forum_track_prefs)) {
-        $DB->delete_records_select('partforum_track_prefs', "forumid IN ($allforumssql)", $params);
+    if (!empty($data->reset_partforum_track_prefs)) {
+        $DB->delete_records_select('partforum_track_prefs', "partforumid IN ($allpartforumssql)", $params);
         $status[] = array('component'=>$componentstr, 'item'=>get_string('resettrackprefs','partforum'), 'error'=>false);
     }
 
@@ -7342,23 +7437,23 @@ function partforum_reset_userdata($data) {
  * @param $mform form passed by reference
  */
 function partforum_reset_course_form_definition(&$mform) {
-    $mform->addElement('header', 'forumheader', get_string('modulenameplural', 'partforum'));
+    $mform->addElement('header', 'partforumheader', get_string('modulenameplural', 'partforum'));
 
-    $mform->addElement('checkbox', 'reset_forum_all', get_string('resetforumsall','partforum'));
+    $mform->addElement('checkbox', 'reset_partforum_all', get_string('resetpartforumsall','partforum'));
 
-    $mform->addElement('select', 'reset_forum_types', get_string('resetforums', 'partforum'), partforum_get_forum_types_all(), array('multiple' => 'multiple'));
-    $mform->setAdvanced('reset_forum_types');
-    $mform->disabledIf('reset_forum_types', 'reset_forum_all', 'checked');
+    $mform->addElement('select', 'reset_partforum_types', get_string('resetpartforums', 'partforum'), partforum_get_partforum_types_all(), array('multiple' => 'multiple'));
+    $mform->setAdvanced('reset_partforum_types');
+    $mform->disabledIf('reset_partforum_types', 'reset_partforum_all', 'checked');
 
-    $mform->addElement('checkbox', 'reset_forum_subscriptions', get_string('resetsubscriptions','partforum'));
-    $mform->setAdvanced('reset_forum_subscriptions');
+    $mform->addElement('checkbox', 'reset_partforum_subscriptions', get_string('resetsubscriptions','partforum'));
+    $mform->setAdvanced('reset_partforum_subscriptions');
 
-    $mform->addElement('checkbox', 'reset_forum_track_prefs', get_string('resettrackprefs','partforum'));
-    $mform->setAdvanced('reset_forum_track_prefs');
-    $mform->disabledIf('reset_forum_track_prefs', 'reset_forum_all', 'checked');
+    $mform->addElement('checkbox', 'reset_partforum_track_prefs', get_string('resettrackprefs','partforum'));
+    $mform->setAdvanced('reset_partforum_track_prefs');
+    $mform->disabledIf('reset_partforum_track_prefs', 'reset_partforum_all', 'checked');
 
-    $mform->addElement('checkbox', 'reset_forum_ratings', get_string('deleteallratings'));
-    $mform->disabledIf('reset_forum_ratings', 'reset_forum_all', 'checked');
+    $mform->addElement('checkbox', 'reset_partforum_ratings', get_string('deleteallratings'));
+    $mform->disabledIf('reset_partforum_ratings', 'reset_partforum_all', 'checked');
 }
 
 /**
@@ -7366,57 +7461,57 @@ function partforum_reset_course_form_definition(&$mform) {
  * @return array
  */
 function partforum_reset_course_form_defaults($course) {
-    return array('reset_forum_all'=>1, 'reset_forum_subscriptions'=>0, 'reset_forum_track_prefs'=>0, 'reset_forum_ratings'=>1);
+    return array('reset_partforum_all'=>1, 'reset_partforum_subscriptions'=>0, 'reset_partforum_track_prefs'=>0, 'reset_partforum_ratings'=>1);
 }
 
 /**
- * Converts a forum to use the Roles System
+ * Converts a partforum to use the Roles System
  *
  * @global object
  * @global object
- * @param object $forum        a forum object with the same attributes as a record
- *                        from the forum database table
- * @param int $forummodid   the id of the forum module, from the modules table
+ * @param object $partforum        a partforum object with the same attributes as a record
+ *                        from the partforum database table
+ * @param int $partforummodid   the id of the partforum module, from the modules table
  * @param array $teacherroles array of roles that have archetype teacher
  * @param array $studentroles array of roles that have archetype student
  * @param array $guestroles   array of roles that have archetype guest
- * @param int $cmid         the course_module id for this forum instance
- * @return boolean      forum was converted or not
+ * @param int $cmid         the course_module id for this partforum instance
+ * @return boolean      partforum was converted or not
  */
-function partforum_convert_to_roles($forum, $forummodid, $teacherroles=array(),
+function partforum_convert_to_roles($partforum, $partforummodid, $teacherroles=array(),
                                 $studentroles=array(), $guestroles=array(), $cmid=NULL) {
 
     global $CFG, $DB, $OUTPUT;
 
-    if (!isset($forum->open) && !isset($forum->assesspublic)) {
-        // We assume that this forum has already been converted to use the
-        // Roles System. Columns forum.open and forum.assesspublic get dropped
-        // once the forum module has been upgraded to use Roles.
+    if (!isset($partforum->open) && !isset($partforum->assesspublic)) {
+        // We assume that this partforum has already been converted to use the
+        // Roles System. Columns partforum.open and partforum.assesspublic get dropped
+        // once the partforum module has been upgraded to use Roles.
         return false;
     }
 
-    if ($forum->type == 'teacher') {
+    if ($partforum->type == 'teacher') {
 
-        // Teacher forums should be converted to normal forums that
+        // Teacher partforums should be converted to normal partforums that
         // use the Roles System to implement the old behavior.
         // Note:
-        //   Seems that teacher forums were never backed up in 1.6 since they
+        //   Seems that teacher partforums were never backed up in 1.6 since they
         //   didn't have an entry in the course_modules table.
         require_once($CFG->dirroot.'/course/lib.php');
 
-        if ($DB->count_records('partforum_discussions', array('forum' => $forum->id)) == 0) {
-            // Delete empty teacher forums.
-            $DB->delete_records('partforum', array('id' => $forum->id));
+        if ($DB->count_records('partforum_discussions', array('partforum' => $partforum->id)) == 0) {
+            // Delete empty teacher partforums.
+            $DB->delete_records('partforum', array('id' => $partforum->id));
         } else {
-            // Create a course module for the forum and assign it to
+            // Create a course module for the partforum and assign it to
             // section 0 in the course.
             $mod = new stdClass();
-            $mod->course = $forum->course;
-            $mod->module = $forummodid;
-            $mod->instance = $forum->id;
+            $mod->course = $partforum->course;
+            $mod->module = $partforummodid;
+            $mod->instance = $partforum->id;
             $mod->section = 0;
-            $mod->visible = 0;     // Hide the forum
-            $mod->visibleold = 0;  // Hide the forum
+            $mod->visible = 0;     // Hide the partforum
+            $mod->visibleold = 0;  // Hide the partforum
             $mod->groupmode = 0;
 
             if (!$cmid = add_course_module($mod)) {
@@ -7424,17 +7519,17 @@ function partforum_convert_to_roles($forum, $forummodid, $teacherroles=array(),
             } else {
                 $mod->coursemodule = $cmid;
                 if (!$sectionid = add_mod_to_section($mod)) {
-                    print_error('cannotaddteacherforumto', 'partforum');
+                    print_error('cannotaddteacherpartforumto', 'partforum');
                 } else {
                     $DB->set_field('course_modules', 'section', $sectionid, array('id' => $cmid));
                 }
             }
 
-            // Change the forum type to general.
-            $forum->type = 'general';
-            $DB->update_record('partforum', $forum);
+            // Change the partforum type to general.
+            $partforum->type = 'general';
+            $DB->update_record('partforum', $partforum);
 
-            $context = get_context_instance(CONTEXT_MODULE, $cmid);
+            $context =context_module::instance($cmid);
 
             // Create overrides for default student and guest roles (prevent).
             foreach ($studentroles as $studentrole) {
@@ -7477,24 +7572,24 @@ function partforum_convert_to_roles($forum, $forummodid, $teacherroles=array(),
             }
         }
     } else {
-        // Non-teacher forum.
+        // Non-teacher partforum.
 
         if (empty($cmid)) {
             // We were not given the course_module id. Try to find it.
-            if (!$cm = get_coursemodule_from_instance('partforum', $forum->id)) {
-                echo $OUTPUT->notification('Could not get the course module for the forum');
+            if (!$cm = get_coursemodule_from_instance('partforum', $partforum->id)) {
+                echo $OUTPUT->notification('Could not get the course module for the partforum');
                 return false;
             } else {
                 $cmid = $cm->id;
             }
         }
-        $context = get_context_instance(CONTEXT_MODULE, $cmid);
+        $context =context_module::instance($cmid);
 
-        // $forum->open defines what students can do:
+        // $partforum->open defines what students can do:
         //   0 = No discussions, no replies
         //   1 = No discussions, but replies are allowed
         //   2 = Discussions and replies are allowed
-        switch ($forum->open) {
+        switch ($partforum->open) {
             case 0:
                 foreach ($studentroles as $studentrole) {
                     assign_capability('mod/partforum:startdiscussion', CAP_PREVENT, $studentrole->id, $context->id);
@@ -7515,11 +7610,11 @@ function partforum_convert_to_roles($forum, $forummodid, $teacherroles=array(),
                 break;
         }
 
-        // $forum->assessed defines whether forum rating is turned
+        // $partforum->assessed defines whether partforum rating is turned
         // on (1 or 2) and who can rate posts:
         //   1 = Everyone can rate posts
         //   2 = Only teachers can rate posts
-        switch ($forum->assessed) {
+        switch ($partforum->assessed) {
             case 1:
                 foreach ($studentroles as $studentrole) {
                     assign_capability('mod/partforum:rate', CAP_ALLOW, $studentrole->id, $context->id);
@@ -7538,11 +7633,11 @@ function partforum_convert_to_roles($forum, $forummodid, $teacherroles=array(),
                 break;
         }
 
-        // $forum->assesspublic defines whether students can see
+        // $partforum->assesspublic defines whether students can see
         // everybody's ratings:
         //   0 = Students can only see their own ratings
         //   1 = Students can see everyone's ratings
-        switch ($forum->assesspublic) {
+        switch ($partforum->assesspublic) {
             case 0:
                 foreach ($studentroles as $studentrole) {
                     assign_capability('mod/partforum:viewanyrating', CAP_PREVENT, $studentrole->id, $context->id);
@@ -7594,7 +7689,7 @@ function partforum_convert_to_roles($forum, $forummodid, $teacherroles=array(),
 }
 
 /**
- * Returns array of forum layout modes
+ * Returns array of partforum layout modes
  *
  * @return array
  */
@@ -7606,37 +7701,37 @@ function partforum_get_layout_modes() {
 }
 
 /**
- * Returns array of forum types chooseable on the forum editing form
+ * Returns array of partforum types chooseable on the partforum editing form
  *
  * @return array
  */
-function partforum_get_forum_types() {
-    return array ('general'  => get_string('generalforum', 'partforum'),
+function partforum_get_partforum_types() {
+    return array ('general'  => get_string('generalpartforum', 'partforum'),
     		 	  'participation'   => get_string('partforum', 'partforum'),
-                  'eachuser' => get_string('eachuserforum', 'partforum'),
-                  'single'   => get_string('singleforum', 'partforum'),
-                  'qanda'    => get_string('qandaforum', 'partforum'),
-                  'blog'     => get_string('blogforum', 'partforum'));
+                  'eachuser' => get_string('eachuserpartforum', 'partforum'),
+                  'single'   => get_string('singlepartforum', 'partforum'),
+                  'qanda'    => get_string('qandapartforum', 'partforum'),
+                  'blog'     => get_string('blogpartforum', 'partforum'));
 }
 
 /**
- * Returns array of all forum layout modes
+ * Returns array of all partforum layout modes
  *
  * @return array
  */
-function partforum_get_forum_types_all() {
+function partforum_get_partforum_types_all() {
     return array ('news'     => get_string('namenews','partforum'),
                   'social'   => get_string('namesocial','partforum'),
-                  'general'  => get_string('generalforum', 'partforum'),
+                  'general'  => get_string('generalpartforum', 'partforum'),
                   'participation'   => get_string('partforum', 'partforum'),
-                  'eachuser' => get_string('eachuserforum', 'partforum'),
-                  'single'   => get_string('singleforum', 'partforum'),
-                  'qanda'    => get_string('qandaforum', 'partforum'),
-                  'blog'     => get_string('blogforum', 'partforum'));
+                  'eachuser' => get_string('eachuserpartforum', 'partforum'),
+                  'single'   => get_string('singlepartforum', 'partforum'),
+                  'qanda'    => get_string('qandapartforum', 'partforum'),
+                  'blog'     => get_string('blogpartforum', 'partforum'));
 }
 
 /**
- * Returns array of forum open modes
+ * Returns array of partforum open modes
  *
  * @return array
  */
@@ -7657,7 +7752,7 @@ function partforum_get_extra_capabilities() {
 
 
 /**
- * This function is used to extend the global navigation by add forum nodes if there
+ * This function is used to extend the global navigation by add partforum nodes if there
  * is relevant content.
  *
  * @param navigation_node $navref
@@ -7703,7 +7798,7 @@ function partforum_extend_navigation($navref, $course, $module, $cm) {
             $lastlogin = $USER->lastcourseaccess[$course->id];
         }
     }
-    forum_get_recent_mod_activity($recentposts, $index, $lastlogin, $course->id, $cm->id);
+    partforum_get_recent_mod_activity($recentposts, $index, $lastlogin, $course->id, $cm->id);
 
     if (is_array($recentposts) && count($recentposts)>0) {
         $recentnode = $navref->add(get_string('recentactivity').' ('.count($recentposts).')');
@@ -7723,12 +7818,12 @@ function partforum_extend_navigation($navref, $course, $module, $cm) {
  * Adds module specific settings to the settings block
  *
  * @param settings_navigation $settings The settings navigation object
- * @param navigation_node $forumnode The node to add module settings to
+ * @param navigation_node $partforumnode The node to add module settings to
  */
-function partforum_extend_settings_navigation(settings_navigation $settingsnav, navigation_node $forumnode) {
+function partforum_extend_settings_navigation(settings_navigation $settingsnav, navigation_node $partforumnode) {
     global $USER, $PAGE, $CFG, $DB, $OUTPUT;
 
-    $forumobject = $DB->get_record("partforum", array("id" => $PAGE->cm->instance));
+    $partforumobject = $DB->get_record("partforum", array("id" => $PAGE->cm->instance));
     if (empty($PAGE->cm->context)) {
         $PAGE->cm->context = get_context_instance(CONTEXT_MODULE, $PAGE->cm->instance);
     }
@@ -7738,16 +7833,16 @@ function partforum_extend_settings_navigation(settings_navigation $settingsnav, 
     $activeenrolled = is_enrolled($PAGE->cm->context, $USER, '', true);
 
     $canmanage  = has_capability('mod/partforum:managesubscriptions', $PAGE->cm->context);
-    $subscriptionmode = partforum_get_forcesubscribed($forumobject);
+    $subscriptionmode = partforum_get_forcesubscribed($partforumobject);
     $cansubscribe = ($activeenrolled && $subscriptionmode != PARTFORUM_FORCESUBSCRIBE && ($subscriptionmode != PARTFORUM_DISALLOWSUBSCRIBE || $canmanage));
 
     if ($canmanage) {
-        $mode = $forumnode->add(get_string('subscriptionmode', 'partforum'), null, navigation_node::TYPE_CONTAINER);
+        $mode = $partforumnode->add(get_string('subscriptionmode', 'partforum'), null, navigation_node::TYPE_CONTAINER);
 
-        $allowchoice = $mode->add(get_string('subscriptionoptional', 'partforum'), new moodle_url('/mod/partforum/subscribe.php', array('id'=>$forumobject->id, 'mode'=>PARTFORUM_CHOOSESUBSCRIBE, 'sesskey'=>sesskey())), navigation_node::TYPE_SETTING);
-        $forceforever = $mode->add(get_string("subscriptionforced", "partforum"), new moodle_url('/mod/partforum/subscribe.php', array('id'=>$forumobject->id, 'mode'=>PARTFORUM_FORCESUBSCRIBE, 'sesskey'=>sesskey())), navigation_node::TYPE_SETTING);
-        $forceinitially = $mode->add(get_string("subscriptionauto", "partforum"), new moodle_url('/mod/partforum/subscribe.php', array('id'=>$forumobject->id, 'mode'=>PARTFORUM_INITIALSUBSCRIBE, 'sesskey'=>sesskey())), navigation_node::TYPE_SETTING);
-        $disallowchoice = $mode->add(get_string('subscriptiondisabled', 'partforum'), new moodle_url('/mod/partforum/subscribe.php', array('id'=>$forumobject->id, 'mode'=>PARTFORUM_DISALLOWSUBSCRIBE, 'sesskey'=>sesskey())), navigation_node::TYPE_SETTING);
+        $allowchoice = $mode->add(get_string('subscriptionoptional', 'partforum'), new moodle_url('/mod/partforum/subscribe.php', array('id'=>$partforumobject->id, 'mode'=>PARTFORUM_CHOOSESUBSCRIBE, 'sesskey'=>sesskey())), navigation_node::TYPE_SETTING);
+        $forceforever = $mode->add(get_string("subscriptionforced", "partforum"), new moodle_url('/mod/partforum/subscribe.php', array('id'=>$partforumobject->id, 'mode'=>PARTFORUM_FORCESUBSCRIBE, 'sesskey'=>sesskey())), navigation_node::TYPE_SETTING);
+        $forceinitially = $mode->add(get_string("subscriptionauto", "partforum"), new moodle_url('/mod/partforum/subscribe.php', array('id'=>$partforumobject->id, 'mode'=>PARTFORUM_INITIALSUBSCRIBE, 'sesskey'=>sesskey())), navigation_node::TYPE_SETTING);
+        $disallowchoice = $mode->add(get_string('subscriptiondisabled', 'partforum'), new moodle_url('/mod/partforum/subscribe.php', array('id'=>$partforumobject->id, 'mode'=>PARTFORUM_DISALLOWSUBSCRIBE, 'sesskey'=>sesskey())), navigation_node::TYPE_SETTING);
 
         switch ($subscriptionmode) {
             case PARTFORUM_CHOOSESUBSCRIBE : // 0
@@ -7772,57 +7867,57 @@ function partforum_extend_settings_navigation(settings_navigation $settingsnav, 
 
         switch ($subscriptionmode) {
             case PARTFORUM_CHOOSESUBSCRIBE : // 0
-                $notenode = $forumnode->add(get_string('subscriptionoptional', 'partforum'));
+                $notenode = $partforumnode->add(get_string('subscriptionoptional', 'partforum'));
                 break;
             case PARTFORUM_FORCESUBSCRIBE : // 1
-                $notenode = $forumnode->add(get_string('subscriptionforced', 'partforum'));
+                $notenode = $partforumnode->add(get_string('subscriptionforced', 'partforum'));
                 break;
             case PARTFORUM_INITIALSUBSCRIBE : // 2
-                $notenode = $forumnode->add(get_string('subscriptionauto', 'partforum'));
+                $notenode = $partforumnode->add(get_string('subscriptionauto', 'partforum'));
                 break;
             case PARTFORUM_DISALLOWSUBSCRIBE : // 3
-                $notenode = $forumnode->add(get_string('subscriptiondisabled', 'partforum'));
+                $notenode = $partforumnode->add(get_string('subscriptiondisabled', 'partforum'));
                 break;
         }
     }
 
     if ($cansubscribe) {
-        if (partforum_is_subscribed($USER->id, $forumobject)) {
+        if (partforum_is_subscribed($USER->id, $partforumobject)) {
             $linktext = get_string('unsubscribe', 'partforum');
         } else {
             $linktext = get_string('subscribe', 'partforum');
         }
-        $url = new moodle_url('/mod/partforum/subscribe.php', array('id'=>$forumobject->id, 'sesskey'=>sesskey()));
-        $forumnode->add($linktext, $url, navigation_node::TYPE_SETTING);
+        $url = new moodle_url('/mod/partforum/subscribe.php', array('id'=>$partforumobject->id, 'sesskey'=>sesskey()));
+        $partforumnode->add($linktext, $url, navigation_node::TYPE_SETTING);
     }
 
     if (has_capability('mod/partforum:viewsubscribers', $PAGE->cm->context)){
-        $url = new moodle_url('/mod/partforum/subscribers.php', array('id'=>$forumobject->id));
-        $forumnode->add(get_string('showsubscribers', 'partforum'), $url, navigation_node::TYPE_SETTING);
+        $url = new moodle_url('/mod/partforum/subscribers.php', array('id'=>$partforumobject->id));
+        $partforumnode->add(get_string('showsubscribers', 'partforum'), $url, navigation_node::TYPE_SETTING);
     }
 
-    if ($enrolled && partforum_tp_can_track_forums($forumobject)) { // keep tracking info for users with suspended enrolments
-        if ($forumobject->trackingtype != PARTFORUM_TRACKING_OPTIONAL) {
-            //tracking forced on or off in forum settings so dont provide a link here to change it
+    if ($enrolled && partforum_tp_can_track_partforums($partforumobject)) { // keep tracking info for users with suspended enrolments
+        if ($partforumobject->trackingtype != PARTFORUM_TRACKING_OPTIONAL) {
+            //tracking forced on or off in partforum settings so dont provide a link here to change it
             //could add unclickable text like for forced subscription but not sure this justifies adding another menu item
         } else {
-            if (partforum_tp_is_tracked($forumobject)) {
-                $linktext = get_string('notrackforum', 'partforum');
+            if (partforum_tp_is_tracked($partforumobject)) {
+                $linktext = get_string('notrackpartforum', 'partforum');
             } else {
-                $linktext = get_string('trackforum', 'partforum');
+                $linktext = get_string('trackpartforum', 'partforum');
             }
-            $url = new moodle_url('/mod/partforum/settracking.php', array('id'=>$forumobject->id));
-            $forumnode->add($linktext, $url, navigation_node::TYPE_SETTING);
+            $url = new moodle_url('/mod/partforum/settracking.php', array('id'=>$partforumobject->id));
+            $partforumnode->add($linktext, $url, navigation_node::TYPE_SETTING);
         }
     }
 
-    if ($enrolled && !empty($CFG->enablerssfeeds) && !empty($CFG->forum_enablerssfeeds) && $forumobject->rsstype && $forumobject->rssarticles) {
+    if ($enrolled && !empty($CFG->enablerssfeeds) && !empty($CFG->partforum_enablerssfeeds) && $partforumobject->rsstype && $partforumobject->rssarticles) {
 
         if (!function_exists('rss_get_url')) {
             require_once("$CFG->libdir/rsslib.php");
         }
 
-        if ($forumobject->rsstype == 1) {
+        if ($partforumobject->rsstype == 1) {
             $string = get_string('rsssubscriberssdiscussions','partforum');
         } else {
             $string = get_string('rsssubscriberssposts','partforum');
@@ -7832,26 +7927,26 @@ function partforum_extend_settings_navigation(settings_navigation $settingsnav, 
         } else {
             $userid = $USER->id;
         }
-        $url = new moodle_url(rss_get_url($PAGE->cm->context->id, $userid, "mod_partforum", $forumobject->id));
-        $forumnode->add($string, $url, settings_navigation::TYPE_SETTING, null, null, new pix_icon('i/rss', ''));
+        $url = new moodle_url(rss_get_url($PAGE->cm->context->id, $userid, "mod_partforum", $partforumobject->id));
+        $partforumnode->add($string, $url, settings_navigation::TYPE_SETTING, null, null, new pix_icon('i/rss', ''));
     }
 }
 
 /**
- * Abstract class used by forum subscriber selection controls
- * @package mod-forum
+ * Abstract class used by partforum subscriber selection controls
+ * @package mod-partforum
  * @copyright 2009 Sam Hemelryk
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 abstract class partforum_subscriber_selector_base extends user_selector_base {
 
     /**
-     * The id of the forum this selector is being used for
+     * The id of the partforum this selector is being used for
      * @var int
      */
-    protected $forumid = null;
+    protected $partforumid = null;
     /**
-     * The context of the forum this selector is being used for
+     * The context of the partforum this selector is being used for
      * @var object
      */
     protected $context = null;
@@ -7874,8 +7969,8 @@ abstract class partforum_subscriber_selector_base extends user_selector_base {
         if (isset($options['currentgroup'])) {
             $this->currentgroup = $options['currentgroup'];
         }
-        if (isset($options['forumid'])) {
-            $this->forumid = $options['forumid'];
+        if (isset($options['partforumid'])) {
+            $this->partforumid = $options['partforumid'];
         }
     }
 
@@ -7890,22 +7985,22 @@ abstract class partforum_subscriber_selector_base extends user_selector_base {
         $options['file'] =  substr(__FILE__, strlen($CFG->dirroot.'/'));
         $options['context'] = $this->context;
         $options['currentgroup'] = $this->currentgroup;
-        $options['forumid'] = $this->forumid;
+        $options['partforumid'] = $this->partforumid;
         return $options;
     }
 
 }
 
 /**
- * A user selector control for potential subscribers to the selected forum
- * @package mod-forum
+ * A user selector control for potential subscribers to the selected partforum
+ * @package mod-partforum
  * @copyright 2009 Sam Hemelryk
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 class partforum_potential_subscriber_selector extends partforum_subscriber_selector_base {
 
     /**
-     * If set to true EVERYONE in this course is force subscribed to this forum
+     * If set to true EVERYONE in this course is force subscribed to this partforum
      * @var bool
      */
     protected $forcesubscribed = false;
@@ -7991,7 +8086,7 @@ class partforum_potential_subscriber_selector extends partforum_subscriber_selec
     }
 
     /**
-     * Sets this forum as force subscribed or not
+     * Sets this partforum as force subscribed or not
      */
     public function set_force_subscribed($setting=true) {
         $this->forcesubscribed = true;
@@ -8000,7 +8095,7 @@ class partforum_potential_subscriber_selector extends partforum_subscriber_selec
 
 /**
  * User selector control for removing subscribed users
- * @package mod-forum
+ * @package mod-partforum
  * @copyright 2009 Sam Hemelryk
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -8015,7 +8110,7 @@ class partforum_existing_subscriber_selector extends partforum_subscriber_select
     public function find_users($search) {
         global $DB;
         list($wherecondition, $params) = $this->search_sql($search, 'u');
-        $params['forumid'] = $this->forumid;
+        $params['partforumid'] = $this->partforumid;
 
         // only active enrolled or everybody on the frontpage
         list($esql, $eparams) = get_enrolled_sql($this->context, '', $this->currentgroup, true);
@@ -8027,7 +8122,7 @@ class partforum_existing_subscriber_selector extends partforum_subscriber_select
                                                FROM {user} u
                                                JOIN ($esql) je ON je.id = u.id
                                                JOIN {partforum_subscriptions} s ON s.userid = u.id
-                                              WHERE $wherecondition AND s.forum = :forumid
+                                              WHERE $wherecondition AND s.partforum = :partforumid
                                            ORDER BY u.lastname ASC, u.firstname ASC", $params);
 
         return array(get_string("existingsubscribers", 'partforum') => $subscribers);
@@ -8047,14 +8142,14 @@ function partforum_cm_info_view(cm_info $cm) {
     static $initialised;
     static $usetracking, $strunreadpostsone;
     if (!isset($initialised)) {
-        if ($usetracking = partforum_tp_can_track_forums()) {
+        if ($usetracking = partforum_tp_can_track_partforums()) {
             $strunreadpostsone = get_string('unreadpostsone', 'partforum');
         }
         $initialised = true;
     }
 
     if ($usetracking) {
-        if ($unread = partforum_tp_count_forum_unread_posts($cm, $cm->get_course())) {
+        if ($unread = partforum_tp_count_partforum_unread_posts($cm, $cm->get_course())) {
             $out = '<span class="unread"> <a href="' . $cm->get_url() . '">';
             if ($unread == 1) {
                 $out .= $strunreadpostsone;
@@ -8074,10 +8169,62 @@ function partforum_cm_info_view(cm_info $cm) {
  * @param stdClass $currentcontext Current context of block
  */
 function partforum_page_type_list($pagetype, $parentcontext, $currentcontext) {
-    $forum_pagetype = array(
-        'mod-forum-*'=>get_string('page-mod-forum-x', 'partforum'),
-        'mod-forum-view'=>get_string('page-mod-forum-view', 'partforum'),
-        'mod-forum-discuss'=>get_string('page-mod-forum-discuss', 'partforum')
+    $partforum_pagetype = array(
+        'mod-partforum-*'=>get_string('page-mod-partforum-x', 'partforum'),
+        'mod-partforum-view'=>get_string('page-mod-partforum-view', 'partforum'),
+        'mod-partforum-discuss'=>get_string('page-mod-partforum-discuss', 'partforum')
     );
-    return $forum_pagetype;
+    return $partforum_pagetype;
+}
+
+
+
+/**
+ * Mark the activity completed (if required) and trigger the course_module_viewed event.
+ *
+ * @param  stdClass $partforum   partforum object
+ * @param  stdClass $course  course object
+ * @param  stdClass $cm      course module object
+ * @param  stdClass $context context object
+ * @since Moodle 2.9
+ */
+function partforum_view($partforum, $course, $cm, $context) {
+
+    // Completion.
+    $completion = new completion_info($course);
+    $completion->set_module_viewed($cm);
+
+    // Trigger course_module_viewed event.
+
+    $params = array(
+        'context' => $context,
+        'objectid' => $partforum->id
+    );
+
+    $event = \mod_partforum\event\course_module_viewed::create($params);
+    $event->add_record_snapshot('course_modules', $cm);
+    $event->add_record_snapshot('course', $course);
+    $event->add_record_snapshot('partforum', $partforum);
+    $event->trigger();
+}
+
+
+/**
+ * Trigger the discussion viewed event
+ *
+ * @param  stdClass $modcontext module context object
+ * @param  stdClass $partforum      partforum object
+ * @param  stdClass $discussion discussion object
+ * @since Moodle 2.9
+ */
+function partforum_discussion_view($modcontext, $partforum, $discussion) {
+    $params = array(
+        'context' => $modcontext,
+        'objectid' => $discussion->id,
+    );
+
+    $event = \mod_partforum\event\discussion_viewed::create($params);
+    $event->add_record_snapshot('partforum_discussions', $discussion);
+    $event->add_record_snapshot('partforum', $partforum);
+    $event->trigger();
 }

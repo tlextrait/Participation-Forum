@@ -16,7 +16,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @package mod-forum
+ * @package mod-partforum
  * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -32,7 +32,7 @@ $showform = optional_param('showform', 0, PARAM_INT);   // Just show the form
 
 $user    = trim(optional_param('user', '', PARAM_NOTAGS));    // Names to search for
 $userid  = trim(optional_param('userid', 0, PARAM_INT));      // UserID to search for
-$forumid = trim(optional_param('forumid', 0, PARAM_INT));      // ForumID to search for
+$partforumid = trim(optional_param('partforumid', 0, PARAM_INT));      // ForumID to search for
 $subject = trim(optional_param('subject', '', PARAM_NOTAGS)); // Subject
 $phrase  = trim(optional_param('phrase', '', PARAM_NOTAGS));  // Phrase
 $words   = trim(optional_param('words', '', PARAM_NOTAGS));   // Words
@@ -73,8 +73,8 @@ if (empty($search)) {   // Check the other parameters instead
     if (!empty($userid)) {
         $search .= ' userid:'.$userid;
     }
-    if (!empty($forumid)) {
-        $search .= ' forumid:'.$forumid;
+    if (!empty($partforumid)) {
+        $search .= ' partforumid:'.$partforumid;
     }
     if (!empty($user)) {
         $search .= ' '.partforum_clean_search_terms($user, 'user:');
@@ -114,14 +114,14 @@ require_course_login($course);
 
 add_to_log($course->id, "partforum", "search", "search.php?id=$course->id&amp;search=".urlencode($search), $search);
 
-$strforums = get_string("modulenameplural", "partforum");
+$strpartforums = get_string("modulenameplural", "partforum");
 $strsearch = get_string("search", "partforum");
 $strsearchresults = get_string("searchresults", "partforum");
 $strpage = get_string("page");
 
 if (!$search || $showform) {
 
-    $PAGE->navbar->add($strforums, new moodle_url('/mod/partforum/index.php', array('id'=>$course->id)));
+    $PAGE->navbar->add($strpartforums, new moodle_url('/mod/partforum/index.php', array('id'=>$course->id)));
     $PAGE->navbar->add(get_string('advancedsearch', 'partforum'));
 
     $PAGE->set_title($strsearch);
@@ -135,7 +135,7 @@ if (!$search || $showform) {
 
 /// We need to do a search now and print results
 
-$searchterms = str_replace('forumid:', 'instance:', $search);
+$searchterms = str_replace('partforumid:', 'instance:', $search);
 $searchterms = explode(' ', $searchterms);
 
 $searchform = partforum_search_form($course, $search);
@@ -166,7 +166,7 @@ echo '<div class="reportlink">';
 echo '<a href="search.php?id='.$course->id.
                          '&amp;user='.urlencode($user).
                          '&amp;userid='.$userid.
-                         '&amp;forumid='.$forumid.
+                         '&amp;partforumid='.$partforumid.
                          '&amp;subject='.urlencode($subject).
                          '&amp;phrase='.urlencode($phrase).
                          '&amp;words='.urlencode($words).
@@ -200,24 +200,24 @@ $strippedsearch = implode(' ', $searchterms);    // Rebuild the string
 
 foreach ($posts as $post) {
 
-    // Replace the simple subject with the three items forum name -> thread name -> subject
+    // Replace the simple subject with the three items partforum name -> thread name -> subject
     // (if all three are appropriate) each as a link.
     if (! $discussion = $DB->get_record('partforum_discussions', array('id' => $post->discussion))) {
         print_error('invaliddiscussionid', 'partforum');
     }
-    if (! $forum = $DB->get_record('forum', array('id' => "$discussion->forum"))) {
-        print_error('invalidforumid', 'partforum');
+    if (! $partforum = $DB->get_record('partforum', array('id' => "$discussion->partforum"))) {
+        print_error('invalidpartforumid', 'partforum');
     }
 
-    if (!$cm = get_coursemodule_from_instance('partforum', $forum->id)) {
+    if (!$cm = get_coursemodule_from_instance('partforum', $partforum->id)) {
         print_error('invalidcoursemodule');
     }
 
     $post->subject = highlight($strippedsearch, $post->subject);
     $discussion->name = highlight($strippedsearch, $discussion->name);
 
-    $fullsubject = "<a href=\"view.php?f=$forum->id\">".format_string($forum->name,true)."</a>";
-    if ($forum->type != 'single') {
+    $fullsubject = "<a href=\"view.php?f=$partforum->id\">".format_string($partforum->name,true)."</a>";
+    if ($partforum->type != 'single') {
         $fullsubject .= " -> <a href=\"discuss.php?d=$discussion->id\">".format_string($discussion->name,true)."</a>";
         if ($post->parent != 0) {
             $fullsubject .= " -> <a href=\"discuss.php?d=$post->discussion&amp;parent=$post->id\">".format_string($post->subject,true)."</a>";
@@ -228,7 +228,7 @@ foreach ($posts as $post) {
     $post->subjectnoformat = true;
 
     // Identify search terms only found in HTML markup, and add a warning about them to
-    // the start of the message text. However, do not do the highlighting here. forum_print_post
+    // the start of the message text. However, do not do the highlighting here. partforum_print_post
     // will do it for us later.
     $missing_terms = "";
 
@@ -252,11 +252,11 @@ foreach ($posts as $post) {
         $post->message = '<p class="highlight2">'.$strmissingsearchterms.' '.$missing_terms.'</p>'.$post->message;
     }
 
-    // Prepare a link to the post in context, to be displayed after the forum post.
+    // Prepare a link to the post in context, to be displayed after the partforum post.
     $fulllink = "<a href=\"discuss.php?d=$post->discussion#p$post->id\">".get_string("postincontext", "partforum")."</a>";
 
     // Now pring the post.
-    partforum_print_post($post, $discussion, $forum, $cm, $course, false, false, false,
+    partforum_print_post($post, $discussion, $partforum, $cm, $course, false, false, false,
             $fulllink, '', -99, false);
 }
 
@@ -272,11 +272,11 @@ echo $OUTPUT->footer();
 function partforum_print_big_search_form($course) {
     global $CFG, $DB, $words, $subject, $phrase, $user, $userid, $fullwords, $notwords, $datefrom, $dateto, $PAGE, $OUTPUT;
 
-    echo $OUTPUT->box(get_string('searchforumintro', 'partforum'), 'searchbox boxaligncenter', 'intro');
+    echo $OUTPUT->box(get_string('searchpartforumintro', 'partforum'), 'searchbox boxaligncenter', 'intro');
 
     echo $OUTPUT->box_start('generalbox boxaligncenter');
 
-    echo html_writer::script('', $CFG->wwwroot.'/mod/partforum/forum.js');
+    echo html_writer::script('', $CFG->wwwroot.'/mod/partforum/partforum.js');
 
     echo '<form id="searchform" action="search.php" method="get">';
     echo '<table cellpadding="10" class="searchbox" id="form">';
@@ -358,9 +358,9 @@ function partforum_print_big_search_form($course) {
     echo '</tr>';
 
     echo '<tr>';
-    echo '<td class="c0"><label for="menuforumid">'.get_string('searchwhichforums', 'partforum').'</label></td>';
+    echo '<td class="c0"><label for="menupartforumid">'.get_string('searchwhichpartforums', 'partforum').'</label></td>';
     echo '<td class="c1">';
-    echo html_writer::select(partforum_menu_list($course), 'forumid', '', array(''=>get_string('allforums', 'partforum')));
+    echo html_writer::select(partforum_menu_list($course), 'partforumid', '', array(''=>get_string('allpartforums', 'partforum')));
     echo '</td>';
     echo '</tr>';
 
@@ -376,7 +376,7 @@ function partforum_print_big_search_form($course) {
 
     echo '<tr>';
     echo '<td class="submit" colspan="2" align="center">';
-    echo '<input type="submit" value="'.get_string('searchforums', 'partforum').'" alt="" /></td>';
+    echo '<input type="submit" value="'.get_string('searchpartforums', 'partforum').'" alt="" /></td>';
     echo '</tr>';
 
     echo '</table>';
@@ -426,7 +426,7 @@ function partforum_menu_list($course)  {
         if (!$cm->uservisible) {
             continue;
         }
-        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $context = context_module::instance($cm->id);
         if (!has_capability('mod/partforum:viewdiscussion', $context)) {
             continue;
         }

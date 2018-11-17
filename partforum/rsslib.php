@@ -18,7 +18,7 @@
 /**
 * This file adds support to rss feeds generation
 *
-* @package mod-forum
+* @package mod-partforum
 * @copyright 2001 Eloy Lafuente (stronk7) http://contiento.com
 * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
 */
@@ -28,7 +28,7 @@
  * @global object $CFG
  * @global object $DB
  * @param object $context the context
- * @param int $forumid the ID of the forum
+ * @param int $partforumid the ID of the partforum
  * @param array $args the arguments received in the url
  * @return string the full path to the cached RSS feed directory. Null if there is a problem.
  */
@@ -38,15 +38,15 @@ function partforum_rss_get_feed($context, $args) {
     $status = true;
 
     //are RSS feeds enabled?
-    if (empty($CFG->forum_enablerssfeeds)) {
+    if (empty($CFG->partforum_enablerssfeeds)) {
         debugging('DISABLED (module configuration)');
         return null;
     }
 
-    $forumid  = clean_param($args[3], PARAM_INT);
-    $cm = get_coursemodule_from_instance('partforum', $forumid, 0, false, MUST_EXIST);
+    $partforumid  = clean_param($args[3], PARAM_INT);
+    $cm = get_coursemodule_from_instance('partforum', $partforumid, 0, false, MUST_EXIST);
     if ($cm) {
-        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+        $modcontext = context_module::instance($cm->id);
 
         //context id from db should match the submitted one
         if ($context->id != $modcontext->id || !has_capability('mod/partforum:viewdiscussion', $modcontext)) {
@@ -54,16 +54,16 @@ function partforum_rss_get_feed($context, $args) {
         }
     }
 
-    $forum = $DB->get_record('partforum', array('id' => $forumid), '*', MUST_EXIST);
-    if (!rss_enabled_for_mod('partforum', $forum)) {
+    $partforum = $DB->get_record('partforum', array('id' => $partforumid), '*', MUST_EXIST);
+    if (!rss_enabled_for_mod('partforum', $partforum)) {
         return null;
     }
 
     //the sql that will retreive the data for the feed and be hashed to get the cache filename
-    $sql = partforum_rss_get_sql($forum, $cm);
+    $sql = partforum_rss_get_sql($partforum, $cm);
 
     //hash the sql to get the cache file name
-    $filename = rss_get_file_name($forum, $sql);
+    $filename = rss_get_file_name($partforum, $sql);
     $cachedfilepath = rss_get_file_full_name('mod_partforum', $filename);
 
     //Is the cache out of date?
@@ -73,9 +73,9 @@ function partforum_rss_get_feed($context, $args) {
     }
     //if the cache is more than 60 seconds old and there's new stuff
     $dontrecheckcutoff = time()-60;
-    if ( $dontrecheckcutoff > $cachedfilelastmodified && partforum_rss_newstuff($forum, $cm, $cachedfilelastmodified)) {
+    if ( $dontrecheckcutoff > $cachedfilelastmodified && partforum_rss_newstuff($partforum, $cm, $cachedfilelastmodified)) {
         //need to regenerate the cached version
-        $result = partforum_rss_feed_contents($forum, $sql);
+        $result = partforum_rss_feed_contents($partforum, $sql);
         if (!empty($result)) {
             $status = rss_save_file('mod_partforum',$filename,$result);
         }
@@ -86,51 +86,51 @@ function partforum_rss_get_feed($context, $args) {
 }
 
 /**
- * Given a forum object, deletes all cached RSS files associated with it.
+ * Given a partforum object, deletes all cached RSS files associated with it.
  *
- * @param object $forum
+ * @param object $partforum
  * @return void
  */
-function partforum_rss_delete_file($forum) {
-    rss_delete_file('mod_partforum', $forum);
+function partforum_rss_delete_file($partforum) {
+    rss_delete_file('mod_partforum', $partforum);
 }
 
 ///////////////////////////////////////////////////////
 //Utility functions
 
 /**
- * If there is new stuff in the forum since $time this returns true
+ * If there is new stuff in the partforum since $time this returns true
  * Otherwise it returns false.
  *
- * @param object $forum the forum object
+ * @param object $partforum the partforum object
  * @param object $cm
  * @param int $time timestamp
  * @return bool
  */
-function partforum_rss_newstuff($forum, $cm, $time) {
+function partforum_rss_newstuff($partforum, $cm, $time) {
     global $DB;
 
-    $sql = partforum_rss_get_sql($forum, $cm, $time);
+    $sql = partforum_rss_get_sql($partforum, $cm, $time);
 
     $recs = $DB->get_records_sql($sql, null, 0, 1);//limit of 1. If we get even 1 back we have new stuff
     return ($recs && !empty($recs));
 }
 
-function partforum_rss_get_sql($forum, $cm, $time=0) {
+function partforum_rss_get_sql($partforum, $cm, $time=0) {
     $sql = null;
 
-    if (!empty($forum->rsstype)) {
-        if ($forum->rsstype == 1) {    //Discussion RSS
-            $sql = partforum_rss_feed_discussions_sql($forum, $cm, $time);
+    if (!empty($partforum->rsstype)) {
+        if ($partforum->rsstype == 1) {    //Discussion RSS
+            $sql = partforum_rss_feed_discussions_sql($partforum, $cm, $time);
         } else {                //Post RSS
-            $sql = partforum_rss_feed_posts_sql($forum, $cm, $time);
+            $sql = partforum_rss_feed_posts_sql($partforum, $cm, $time);
         }
     }
 
     return $sql;
 }
 
-function partforum_rss_feed_discussions_sql($forum, $cm, $newsince=0) {
+function partforum_rss_feed_discussions_sql($partforum, $cm, $newsince=0) {
     global $CFG, $DB, $USER;
 
     $timelimit = '';
@@ -140,9 +140,9 @@ function partforum_rss_feed_discussions_sql($forum, $cm, $newsince=0) {
     $now = round(time(), -2);
     $params = array($cm->instance);
 
-    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $modcontext = context_module::instance($cm->id);
 
-    if (!empty($CFG->forum_enabletimedposts)) { /// Users must fulfill timed posts
+    if (!empty($CFG->partforum_enabletimedposts)) { /// Users must fulfill timed posts
         if (!has_capability('mod/partforum:viewhiddentimedposts', $modcontext)) {
             $timelimit = " AND ((d.timestart <= :now1 AND (d.timeend = 0 OR d.timeend > :now2))";
             $params['now1'] = $now;
@@ -171,7 +171,7 @@ function partforum_rss_feed_discussions_sql($forum, $cm, $newsince=0) {
         $params['groupid'] = $currentgroup;
     }
 
-    $forumsort = "d.timemodified DESC";
+    $partforumsort = "d.timemodified DESC";
     $postdata = "p.id, p.subject, p.created as postcreated, p.modified, p.discussion, p.userid, p.message as postmessage, p.messageformat AS postformat, p.messagetrust AS posttrust";
 
     $sql = "SELECT $postdata, d.id as discussionid, d.name as discussionname, d.timemodified, d.usermodified, d.groupid, d.timestart, d.timeend,
@@ -179,14 +179,14 @@ function partforum_rss_feed_discussions_sql($forum, $cm, $newsince=0) {
               FROM {partforum_discussions} d
                    JOIN {partforum_posts} p ON p.discussion = d.id
                    JOIN {user} u ON p.userid = u.id
-             WHERE d.forum = {$forum->id} AND p.parent = 0
+             WHERE d.partforum = {$partforum->id} AND p.parent = 0
                    $timelimit $groupselect $newsince
-          ORDER BY $forumsort";
+          ORDER BY $partforumsort";
     return $sql;
 }
 
-function partforum_rss_feed_posts_sql($forum, $cm, $newsince=0) {
-    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+function partforum_rss_feed_posts_sql($partforum, $cm, $newsince=0) {
+    $modcontext = context_module::instance($cm->id);
 
     //get group enforcement SQL
     $groupmode    = groups_get_activity_groupmode($cm);
@@ -219,7 +219,7 @@ function partforum_rss_feed_posts_sql($forum, $cm, $newsince=0) {
             FROM {partforum_discussions} d,
                {partforum_posts} p,
                {user} u
-            WHERE d.forum = {$forum->id} AND
+            WHERE d.partforum = {$partforum->id} AND
                 p.discussion = d.id AND
                 u.id = p.userid $newsince
                 $groupselect
@@ -255,24 +255,24 @@ function partforum_rss_get_group_sql($cm, $groupmode, $currentgroup, $modcontext
 
 
 /**
- * This function return the XML rss contents about the forum
+ * This function return the XML rss contents about the partforum
  * It returns false if something is wrong
  *
- * @param object $forum
+ * @param object $partforum
  * @param bool
  */
-function partforum_rss_feed_contents($forum, $sql) {
+function partforum_rss_feed_contents($partforum, $sql) {
     global $CFG, $DB;
 
     $status = true;
 
     $params = array();
-    //$params['forumid'] = $forum->id;
-    $recs = $DB->get_recordset_sql($sql, $params, 0, $forum->rssarticles);
+    //$params['partforumid'] = $partforum->id;
+    $recs = $DB->get_recordset_sql($sql, $params, 0, $partforum->rssarticles);
 
     //set a flag. Are we displaying discussions or posts?
     $isdiscussion = true;
-    if (!empty($forum->rsstype) && $forum->rsstype!=1) {
+    if (!empty($partforum->rsstype) && $partforum->rsstype!=1) {
         $isdiscussion = false;
     }
 
@@ -287,7 +287,7 @@ function partforum_rss_feed_contents($forum, $sql) {
                 $item->title = format_string($rec->postsubject);
             } else {
                 //we should have an item title by now but if we dont somehow then substitute something somewhat meaningful
-                $item->title = format_string($forum->name.' '.userdate($rec->postcreated,get_string('strftimedatetimeshort', 'langconfig')));
+                $item->title = format_string($partforum->name.' '.userdate($rec->postcreated,get_string('strftimedatetimeshort', 'langconfig')));
             }
             $user->firstname = $rec->userfirstname;
             $user->lastname = $rec->userlastname;
@@ -300,11 +300,11 @@ function partforum_rss_feed_contents($forum, $sql) {
             }
 
             $formatoptions->trusted = $rec->posttrust;
-            $item->description = format_text($rec->postmessage,$rec->postformat,$formatoptions,$forum->course);
+            $item->description = format_text($rec->postmessage,$rec->postformat,$formatoptions,$partforum->course);
 
             //TODO: implement post attachment handling
             /*if (!$isdiscussion) {
-                $post_file_area_name = str_replace('//', '/', "$forum->course/$CFG->moddata/forum/$forum->id/$rec->postid");
+                $post_file_area_name = str_replace('//', '/', "$partforum->course/$CFG->moddata/partforum/$partforum->id/$rec->postid");
                 $post_files = get_directory_list("$CFG->dataroot/$post_file_area_name");
 
                 if (!empty($post_files)) {
@@ -319,9 +319,9 @@ function partforum_rss_feed_contents($forum, $sql) {
 
     if (!empty($items)) {
         //First the RSS header
-        $header = rss_standard_header(strip_tags(format_string($forum->name,true)),
-                                      $CFG->wwwroot."/mod/partforum/view.php?f=".$forum->id,
-                                      format_string($forum->intro,true)); // TODO: fix format
+        $header = rss_standard_header(strip_tags(format_string($partforum->name,true)),
+                                      $CFG->wwwroot."/mod/partforum/view.php?f=".$partforum->id,
+                                      format_string($partforum->intro,true)); // TODO: fix format
         //Now all the rss items
         if (!empty($header)) {
             $articles = rss_add_items($items);

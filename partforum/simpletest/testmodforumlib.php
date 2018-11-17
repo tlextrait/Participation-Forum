@@ -24,13 +24,13 @@
 ///////////////////////////////////////////////////////////////////////////
 
 /**
- * Unit tests for (some of) ../mod/forum/lib.php.
+ * Unit tests for (some of) ../mod/partforum/lib.php.
  *
  * @copyright &copy; 2006 The Open University
  * @author T.J.Hunt@open.ac.uk
  * @author nicolas@moodle.com
  * @license http://www.gnu.org/copyleft/gpl.html GNU Public License
- * @package mod-forum
+ * @package mod-partforum
  */
 
 if (!defined('MOODLE_INTERNAL')) {
@@ -39,7 +39,7 @@ if (!defined('MOODLE_INTERNAL')) {
 
 require_once($CFG->dirroot . '/mod/partforum/lib.php');
 
-class modforumlib_test extends UnitTestCase {
+class modpartforumlib_test extends UnitTestCase {
     public static $includecoverage = array('mod/partforum/lib.php');
 
     function setUp() {
@@ -48,12 +48,12 @@ class modforumlib_test extends UnitTestCase {
     function tearDown() {
     }
 
-    function test_forum_cron() {
-        // watch out: forum_cron() should not be called from here,
+    function test_partforum_cron() {
+        // watch out: partforum_cron() should not be called from here,
         // it relies on special environment setup used in admin/cron.php,
         // mainly special cookieless session and $USER object
         /*
-        forum_cron();
+        partforum_cron();
         $this->assertTrue(false);
         */
     }

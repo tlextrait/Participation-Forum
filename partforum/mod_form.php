@@ -16,7 +16,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @package mod-forum
+ * @package mod-partforum
  * @copyright Jamie Pratt <me@jamiep.org>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -30,14 +30,14 @@ require_once ($CFG->dirroot.'/course/moodleform_mod.php');
 class mod_partforum_mod_form extends moodleform_mod {
 
     function definition() {
-        global $CFG, $COURSE, $DB;
+        global $CFG, $COURSE, $DB,$PAGE;
 
         $mform    =& $this->_form;
         
 //-------------------------------------------------------------------------------
         $mform->addElement('header', 'general', get_string('general', 'form'));
 
-        $mform->addElement('text', 'name', get_string('forumname', 'partforum'), array('size'=>'64'));
+        $mform->addElement('text', 'name', get_string('partforumname', 'partforum'), array('size'=>'64'));
         if (!empty($CFG->formatstringstriptags)) {
         $mform->setType('name', PARAM_TEXT);
         } else {
@@ -46,19 +46,20 @@ class mod_partforum_mod_form extends moodleform_mod {
         $mform->addRule('name', null, 'required', null, 'client');
         $mform->addRule('name', get_string('maximumchars', '', 255), 'maxlength', 255, 'client');
 
-        $forum_types = partforum_get_forum_types();
+        $partforum_types = partforum_get_partforum_types();
 
-        asort($forum_types);
+        asort($partforum_types);
         /*
         * PARTICIPATION FORUM
         *
-        * We force the participation forum as forum type and forbid changing the forum type
+        * We force the participation partforum as partforum type and forbid changing the partforum type
         */
-        $mform->addElement('select', 'type', get_string('forumtype', 'partforum'), $forum_types, 'onChange="changeForumType()" DISABLED');
-        $mform->addHelpButton('type', 'forumtype', 'partforum');
+        $mform->addElement('select', 'type', get_string('partforumtype', 'partforum'), $partforum_types, 'onChange="changeForumType()" DISABLED');
+        $mform->addHelpButton('type', 'partforumtype', 'partforum');
         $mform->setDefault('type', 'participation');
         
-        $this->add_intro_editor(true, get_string('forumintro', 'partforum'));
+       // $this->add_intro_editor(true, get_string('partforumintro', 'partforum'));
+		 $this->standard_intro_elements();
 
         $options = array();
         $options[PARTFORUM_CHOOSESUBSCRIBE] = get_string('subscriptionoptional', 'partforum');
@@ -82,15 +83,15 @@ class mod_partforum_mod_form extends moodleform_mod {
         $choices[0] = get_string('courseuploadlimit') . ' ('.display_size($COURSE->maxbytes).')';
         $mform->addElement('select', 'maxbytes', get_string('maxattachmentsize', 'partforum'), $choices);
         $mform->addHelpButton('maxbytes', 'maxattachmentsize', 'partforum');
-        //$mform->setDefault('maxbytes', $CFG->forum_maxbytes);
-		$mform->setDefault('maxbytes', 2097152);  // update default - 20121116
+        //$mform->setDefault('maxbytes', $CFG->partforum_maxbytes);
+		$mform->setDefault('maxbytes', 5242880);  // update default - 20121116
 
         $choices = array(0,1,2,3,4,5,6,7,8,9,10,20,50,100);
         $mform->addElement('select', 'maxattachments', get_string('maxattachments', 'partforum'), $choices);
         $mform->addHelpButton('maxattachments', 'maxattachments', 'partforum');
-        $mform->setDefault('maxattachments', $CFG->forum_maxattachments);
+        $mform->setDefault('maxattachments', $CFG->partforum_maxattachments);
 
-        if ($CFG->enablerssfeeds && isset($CFG->forum_enablerssfeeds) && $CFG->forum_enablerssfeeds) {
+        if ($CFG->enablerssfeeds && isset($CFG->partforum_enablerssfeeds) && $CFG->partforum_enablerssfeeds) {
 //-------------------------------------------------------------------------------
             $mform->addElement('header', '', get_string('rss'));
             $choices = array();
@@ -152,6 +153,12 @@ class mod_partforum_mod_form extends moodleform_mod {
         $this->standard_grading_coursemodule_elements();
         $this->standard_coursemodule_elements();
         
+	   //seeting default value for rating form fields (updated by hema)
+		$mform->setDefault('assesstimefinish', strtotime('2 week'));		
+	    $PAGE->requires->jquery();
+		$PAGE->requires->js('/mod/partforum/js/default_checkbox.js');
+		$mform->setDefault('scale', 10);
+
 		//-------------------------------------------------------------------------------
 		// Create the buttons (Save and return, Save and display, Cancel)
 

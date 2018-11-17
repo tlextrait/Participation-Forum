@@ -16,7 +16,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @package mod-forum
+ * @package mod-partforum
  * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -27,7 +27,7 @@ require_once($CFG->dirroot . '/mod/partforum/lib.php');
 require_once($CFG->libdir . '/rsslib.php');
 
 $id = optional_param('id', 0, PARAM_INT);                   // Course id
-$subscribe = optional_param('subscribe', null, PARAM_INT);  // Subscribe/Unsubscribe all forums
+$subscribe = optional_param('subscribe', null, PARAM_INT);  // Subscribe/Unsubscribe all partforums
 
 $url = new moodle_url('/mod/partforum/index.php', array('id'=>$id));
 if ($subscribe !== null) {
@@ -46,23 +46,23 @@ if ($id) {
 
 require_course_login($course);
 $PAGE->set_pagelayout('incourse');
-$coursecontext = get_context_instance(CONTEXT_COURSE, $course->id);
+$coursecontext = context_course::instance($course->id);
 
 
 unset($SESSION->fromdiscussion);
 
-add_to_log($course->id, 'partforum', 'view forums', "index.php?id=$course->id");
+add_to_log($course->id, 'partforum', 'view partforums', "index.php?id=$course->id");
 
-$strforums       = get_string('forums', 'partforum');
-$strforum        = get_string('forum', 'partforum');
+$strpartforums       = get_string('partforums', 'partforum');
+$strpartforum        = get_string('partforum', 'partforum');
 $strdescription  = get_string('description');
 $strdiscussions  = get_string('discussions', 'partforum');
 $strsubscribed   = get_string('subscribed', 'partforum');
 $strunreadposts  = get_string('unreadposts', 'partforum');
 $strtracking     = get_string('tracking', 'partforum');
 $strmarkallread  = get_string('markallread', 'partforum');
-$strtrackforum   = get_string('trackforum', 'partforum');
-$strnotrackforum = get_string('notrackforum', 'partforum');
+$strtrackpartforum   = get_string('trackpartforum', 'partforum');
+$strnotrackpartforum = get_string('notrackpartforum', 'partforum');
 $strsubscribe    = get_string('subscribe', 'partforum');
 $strunsubscribe  = get_string('unsubscribe', 'partforum');
 $stryes          = get_string('yes');
@@ -76,11 +76,11 @@ $searchform = partforum_search_form($course);
 // Start of the table for General Forums
 
 $generaltable = new html_table();
-$generaltable->head  = array ($strforum, $strdescription, $strdiscussions);
+$generaltable->head  = array ($strpartforum, $strdescription, $strdiscussions);
 $generaltable->align = array ('left', 'left', 'center');
 
-if ($usetracking = partforum_tp_can_track_forums()) {
-    $untracked = partforum_tp_get_untracked_forums($USER->id, $course->id);
+if ($usetracking = partforum_tp_can_track_partforums()) {
+    $untracked = partforum_tp_get_untracked_partforums($USER->id, $course->id);
 
     $generaltable->head[] = $strunreadposts;
     $generaltable->align[] = 'center';
@@ -89,7 +89,7 @@ if ($usetracking = partforum_tp_can_track_forums()) {
     $generaltable->align[] = 'center';
 }
 
-$subscribed_forums = partforum_get_subscribed_forums($course);
+$subscribed_partforums = partforum_get_subscribed_partforums($course);
 
 $can_subscribe = is_enrolled($coursecontext);
 if ($can_subscribe) {
@@ -98,39 +98,42 @@ if ($can_subscribe) {
 }
 
 if ($show_rss = (($can_subscribe || $course->id == SITEID) &&
-                 isset($CFG->enablerssfeeds) && isset($CFG->forum_enablerssfeeds) &&
-                 $CFG->enablerssfeeds && $CFG->forum_enablerssfeeds)) {
+                 isset($CFG->enablerssfeeds) && isset($CFG->partforum_enablerssfeeds) &&
+                 $CFG->enablerssfeeds && $CFG->partforum_enablerssfeeds)) {
     $generaltable->head[] = $strrss;
     $generaltable->align[] = 'center';
 }
 
 $usesections = course_format_uses_sections($course->format);
-$sections = get_all_sections($course->id);
+
+$modinfo =& get_fast_modinfo($course);
+$sections = $modinfo->get_section_info_all(); // new function            
+//$sections = get_all_sections($course->id); deprecated function
 
 $table = new html_table();
 
-// Parse and organise all the forums.  Most forums are course modules but
-// some special ones are not.  These get placed in the general forums
-// category with the forums in section 0.
+// Parse and organise all the partforums.  Most partforums are course modules but
+// some special ones are not.  These get placed in the general partforums
+// category with the partforums in section 0.
 
-$forums = $DB->get_records('partforum', array('course' => $course->id));
+$partforums = $DB->get_records('partforum', array('course' => $course->id));
 
-$generalforums  = array();
-$learningforums = array();
+$generalpartforums  = array();
+$learningpartforums = array();
 $modinfo =& get_fast_modinfo($course);
 
 if (!isset($modinfo->instances['partforum'])) {
     $modinfo->instances['partforum'] = array();
 }
 
-foreach ($modinfo->instances['partforum'] as $forumid=>$cm) {
-    if (!$cm->uservisible or !isset($forums[$forumid])) {
+foreach ($modinfo->instances['partforum'] as $partforumid=>$cm) {
+    if (!$cm->uservisible or !isset($partforums[$partforumid])) {
         continue;
     }
 
-    $forum = $forums[$forumid];
+    $partforum = $partforums[$partforumid];
 
-    if (!$context = get_context_instance(CONTEXT_MODULE, $cm->id)) {
+    if (!$context = context_module::instance($cm->id)) {
         continue;   // Shouldn't happen
     }
 
@@ -139,22 +142,22 @@ foreach ($modinfo->instances['partforum'] as $forumid=>$cm) {
     }
 
     // fill two type array - order in modinfo is the same as in course
-    if ($forum->type == 'news' or $forum->type == 'social') {
-        $generalforums[$forum->id] = $forum;
+    if ($partforum->type == 'news' or $partforum->type == 'social') {
+        $generalpartforums[$partforum->id] = $partforum;
 
     } else if ($course->id == SITEID or empty($cm->sectionnum)) {
-        $generalforums[$forum->id] = $forum;
+        $generalpartforums[$partforum->id] = $partforum;
 
     } else {
-        $learningforums[$forum->id] = $forum;
+        $learningpartforums[$partforum->id] = $partforum;
     }
 }
 
 /// Do course wide subscribe/unsubscribe
 if (!is_null($subscribe) and !isguestuser()) {
-    foreach ($modinfo->instances['partforum'] as $forumid=>$cm) {
-        $forum = $forums[$forumid];
-        $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+    foreach ($modinfo->instances['partforum'] as $partforumid=>$cm) {
+        $partforum = $partforums[$partforumid];
+        $modcontext = context_module::instance($cm->id);
         $cansub = false;
 
         if (has_capability('mod/partforum:viewdiscussion', $modcontext)) {
@@ -165,12 +168,12 @@ if (!is_null($subscribe) and !isguestuser()) {
         {
             $cansub = false;
         }
-        if (!partforum_is_forcesubscribed($forum)) {
-            $subscribed = partforum_is_subscribed($USER->id, $forum);
-            if ((has_capability('moodle/course:manageactivities', $coursecontext, $USER->id) || $forum->forcesubscribe != PARTFORUM_DISALLOWSUBSCRIBE) && $subscribe && !$subscribed && $cansub) {
-                partforum_subscribe($USER->id, $forumid);
+        if (!partforum_is_forcesubscribed($partforum)) {
+            $subscribed = partforum_is_subscribed($USER->id, $partforum);
+            if ((has_capability('moodle/course:manageactivities', $coursecontext, $USER->id) || $partforum->forcesubscribe != PARTFORUM_DISALLOWSUBSCRIBE) && $subscribe && !$subscribed && $cansub) {
+                partforum_subscribe($USER->id, $partforumid);
             } else if (!$subscribe && $subscribed) {
-                partforum_unsubscribe($USER->id, $forumid);
+                partforum_unsubscribe($USER->id, $partforumid);
             }
         }
     }
@@ -184,83 +187,83 @@ if (!is_null($subscribe) and !isguestuser()) {
     }
 }
 
-/// First, let's process the general forums and build up a display
+/// First, let's process the general partforums and build up a display
 
-if ($generalforums) {
-    foreach ($generalforums as $forum) {
-        $cm      = $modinfo->instances['partforum'][$forum->id];
-        $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+if ($generalpartforums) {
+    foreach ($generalpartforums as $partforum) {
+        $cm      = $modinfo->instances['partforum'][$partforum->id];
+        $context = context_module::instance($cm->id);
 
-        $count = partforum_count_discussions($forum, $cm, $course);
+        $count = partforum_count_discussions($partforum, $cm, $course);
 
         if ($usetracking) {
-            if ($forum->trackingtype == PARTFORUM_TRACKING_OFF) {
+            if ($partforum->trackingtype == PARTFORUM_TRACKING_OFF) {
                 $unreadlink  = '-';
                 $trackedlink = '-';
 
             } else {
-                if (isset($untracked[$forum->id])) {
+                if (isset($untracked[$partforum->id])) {
                         $unreadlink  = '-';
-                } else if ($unread = partforum_tp_count_forum_unread_posts($cm, $course)) {
-                        $unreadlink = '<span class="unread"><a href="view.php?f='.$forum->id.'">'.$unread.'</a>';
+                } else if ($unread = partforum_tp_count_partforum_unread_posts($cm, $course)) {
+                        $unreadlink = '<span class="unread"><a href="view.php?f='.$partforum->id.'">'.$unread.'</a>';
                     $unreadlink .= '<a title="'.$strmarkallread.'" href="markposts.php?f='.
-                                   $forum->id.'&amp;mark=read"><img src="'.$OUTPUT->pix_url('t/clear') . '" alt="'.$strmarkallread.'" /></a></span>';
+                                   $partforum->id.'&amp;mark=read"><img src="'.$OUTPUT->pix_url('t/clear') . '" alt="'.$strmarkallread.'" /></a></span>';
                 } else {
                     $unreadlink = '<span class="read">0</span>';
                 }
 
-                if ($forum->trackingtype == PARTFORUM_TRACKING_ON) {
+                if ($partforum->trackingtype == PARTFORUM_TRACKING_ON) {
                     $trackedlink = $stryes;
 
                 } else {
-                    $aurl = new moodle_url('/mod/partforum/settracking.php', array('id'=>$forum->id));
-                    if (!isset($untracked[$forum->id])) {
-                        $trackedlink = $OUTPUT->single_button($aurl, $stryes, 'post', array('title'=>$strnotrackforum));
+                    $aurl = new moodle_url('/mod/partforum/settracking.php', array('id'=>$partforum->id));
+                    if (!isset($untracked[$partforum->id])) {
+                        $trackedlink = $OUTPUT->single_button($aurl, $stryes, 'post', array('title'=>$strnotrackpartforum));
                     } else {
-                        $trackedlink = $OUTPUT->single_button($aurl, $strno, 'post', array('title'=>$strtrackforum));
+                        $trackedlink = $OUTPUT->single_button($aurl, $strno, 'post', array('title'=>$strtrackpartforum));
                     }
                 }
             }
         }
 
-        $forum->intro = shorten_text(format_module_intro('partforum', $forum, $cm->id), $CFG->forum_shortpost);
-        $forumname = format_string($forum->name, true);;
+        $partforum->intro = shorten_text(format_module_intro('partforum', $partforum, $cm->id), $CFG->partforum_shortpost);
+        $partforumname = format_string($partforum->name, true);;
 
         if ($cm->visible) {
             $style = '';
         } else {
             $style = 'class="dimmed"';
         }
-        $forumlink = "<a href=\"view.php?f=$forum->id\" $style>".format_string($forum->name,true)."</a>";
-        $discussionlink = "<a href=\"view.php?f=$forum->id\" $style>".$count."</a>";
+        $partforumlink = "<a href=\"view.php?f=$partforum->id\" $style>".format_string($partforum->name,true)."</a>";
+        $discussionlink = "<a href=\"view.php?f=$partforum->id\" $style>".$count."</a>";
 
-        $row = array ($forumlink, $forum->intro, $discussionlink);
+        $row = array ($partforumlink, $partforum->intro, $discussionlink);
         if ($usetracking) {
             $row[] = $unreadlink;
             $row[] = $trackedlink;    // Tracking.
         }
 
         if ($can_subscribe) {
-            if ($forum->forcesubscribe != PARTFORUM_DISALLOWSUBSCRIBE) {
-                $row[] = partforum_get_subscribe_link($forum, $context, array('subscribed' => $stryes,
+            if ($partforum->forcesubscribe != PARTFORUM_DISALLOWSUBSCRIBE) {
+                $row[] = partforum_get_subscribe_link($partforum, $context, array('subscribed' => $stryes,
                         'unsubscribed' => $strno, 'forcesubscribed' => $stryes,
-                        'cantsubscribe' => '-'), false, false, true, $subscribed_forums);
+                        'cantsubscribe' => '-'), false, false, true, $subscribed_partforums);
             } else {
                 $row[] = '-';
             }
         }
 
-        //If this forum has RSS activated, calculate it
+        //If this partforum has RSS activated, calculate it
         if ($show_rss) {
-            if ($forum->rsstype and $forum->rssarticles) {
+            if ($partforum->rsstype and $partforum->rssarticles) {
                 //Calculate the tooltip text
-                if ($forum->rsstype == 1) {
+                if ($partforum->rsstype == 1) {
                     $tooltiptext = get_string('rsssubscriberssdiscussions', 'partforum');
                 } else {
                     $tooltiptext = get_string('rsssubscriberssposts', 'partforum');
                 }
                 //Get html code for RSS link
-                $row[] = rss_get_link($context->id, $USER->id, 'mod_partforum', $forum->id, $tooltiptext);
+                $row[] = rss_get_link($context->id, $USER->id, 'mod_partforum', $partforum->id, $tooltiptext);
             } else {
                 $row[] = '&nbsp;';
             }
@@ -273,7 +276,7 @@ if ($generalforums) {
 
 // Start of the table for Learning Forums
 $learningtable = new html_table();
-$learningtable->head  = array ($strforum, $strdescription, $strdiscussions);
+$learningtable->head  = array ($strpartforum, $strdescription, $strdiscussions);
 $learningtable->align = array ('left', 'left', 'center');
 
 if ($usetracking) {
@@ -290,59 +293,59 @@ if ($can_subscribe) {
 }
 
 if ($show_rss = (($can_subscribe || $course->id == SITEID) &&
-                 isset($CFG->enablerssfeeds) && isset($CFG->forum_enablerssfeeds) &&
-                 $CFG->enablerssfeeds && $CFG->forum_enablerssfeeds)) {
+                 isset($CFG->enablerssfeeds) && isset($CFG->partforum_enablerssfeeds) &&
+                 $CFG->enablerssfeeds && $CFG->partforum_enablerssfeeds)) {
     $learningtable->head[] = $strrss;
     $learningtable->align[] = 'center';
 }
 
-/// Now let's process the learning forums
+/// Now let's process the learning partforums
 
-if ($course->id != SITEID) {    // Only real courses have learning forums
+if ($course->id != SITEID) {    // Only real courses have learning partforums
     // Add extra field for section number, at the front
     array_unshift($learningtable->head, $strsectionname);
     array_unshift($learningtable->align, 'center');
 
 
-    if ($learningforums) {
+    if ($learningpartforums) {
         $currentsection = '';
-            foreach ($learningforums as $forum) {
-            $cm      = $modinfo->instances['partforum'][$forum->id];
-            $context = get_context_instance(CONTEXT_MODULE, $cm->id);
+            foreach ($learningpartforums as $partforum) {
+            $cm      = $modinfo->instances['partforum'][$partforum->id];
+            $context = context_module::instance($cm->id);
 
-            $count = partforum_count_discussions($forum, $cm, $course);
+            $count = partforum_count_discussions($partforum, $cm, $course);
 
             if ($usetracking) {
-                if ($forum->trackingtype == PARTFORUM_TRACKING_OFF) {
+                if ($partforum->trackingtype == PARTFORUM_TRACKING_OFF) {
                     $unreadlink  = '-';
                     $trackedlink = '-';
 
                 } else {
-                    if (isset($untracked[$forum->id])) {
+                    if (isset($untracked[$partforum->id])) {
                         $unreadlink  = '-';
-                    } else if ($unread = partforum_tp_count_forum_unread_posts($cm, $course)) {
-                        $unreadlink = '<span class="unread"><a href="view.php?f='.$forum->id.'">'.$unread.'</a>';
+                    } else if ($unread = partforum_tp_count_partforum_unread_posts($cm, $course)) {
+                        $unreadlink = '<span class="unread"><a href="view.php?f='.$partforum->id.'">'.$unread.'</a>';
                         $unreadlink .= '<a title="'.$strmarkallread.'" href="markposts.php?f='.
-                                       $forum->id.'&amp;mark=read"><img src="'.$OUTPUT->pix_url('t/clear') . '" alt="'.$strmarkallread.'" /></a></span>';
+                                       $partforum->id.'&amp;mark=read"><img src="'.$OUTPUT->pix_url('t/clear') . '" alt="'.$strmarkallread.'" /></a></span>';
                     } else {
                         $unreadlink = '<span class="read">0</span>';
                     }
 
-                    if ($forum->trackingtype == PARTFORUM_TRACKING_ON) {
+                    if ($partforum->trackingtype == PARTFORUM_TRACKING_ON) {
                         $trackedlink = $stryes;
 
                     } else {
-                        $aurl = new moodle_url('/mod/partforum/settracking.php', array('id'=>$forum->id));
-                        if (!isset($untracked[$forum->id])) {
-                            $trackedlink = $OUTPUT->single_button($aurl, $stryes, 'post', array('title'=>$strnotrackforum));
+                        $aurl = new moodle_url('/mod/partforum/settracking.php', array('id'=>$partforum->id));
+                        if (!isset($untracked[$partforum->id])) {
+                            $trackedlink = $OUTPUT->single_button($aurl, $stryes, 'post', array('title'=>$strnotrackpartforum));
                         } else {
-                            $trackedlink = $OUTPUT->single_button($aurl, $strno, 'post', array('title'=>$strtrackforum));
+                            $trackedlink = $OUTPUT->single_button($aurl, $strno, 'post', array('title'=>$strtrackpartforum));
                         }
                     }
                 }
             }
 
-            $forum->intro = shorten_text(format_module_intro('partforum', $forum, $cm->id), $CFG->forum_shortpost);
+            $partforum->intro = shorten_text(format_module_intro('partforum', $partforum, $cm->id), $CFG->partforum_shortpost);
 
             if ($cm->sectionnum != $currentsection) {
                 $printsection = get_section_name($course, $sections[$cm->sectionnum]);
@@ -354,43 +357,43 @@ if ($course->id != SITEID) {    // Only real courses have learning forums
                 $printsection = '';
             }
 
-            $forumname = format_string($forum->name,true);;
+            $partforumname = format_string($partforum->name,true);;
 
             if ($cm->visible) {
                 $style = '';
             } else {
                 $style = 'class="dimmed"';
             }
-            $forumlink = "<a href=\"view.php?f=$forum->id\" $style>".format_string($forum->name,true)."</a>";
-            $discussionlink = "<a href=\"view.php?f=$forum->id\" $style>".$count."</a>";
+            $partforumlink = "<a href=\"view.php?f=$partforum->id\" $style>".format_string($partforum->name,true)."</a>";
+            $discussionlink = "<a href=\"view.php?f=$partforum->id\" $style>".$count."</a>";
 
-            $row = array ($printsection, $forumlink, $forum->intro, $discussionlink);
+            $row = array ($printsection, $partforumlink, $partforum->intro, $discussionlink);
             if ($usetracking) {
                 $row[] = $unreadlink;
                 $row[] = $trackedlink;    // Tracking.
             }
 
             if ($can_subscribe) {
-                if ($forum->forcesubscribe != PARTFORUM_DISALLOWSUBSCRIBE) {
-                    $row[] = partforum_get_subscribe_link($forum, $context, array('subscribed' => $stryes,
+                if ($partforum->forcesubscribe != PARTFORUM_DISALLOWSUBSCRIBE) {
+                    $row[] = partforum_get_subscribe_link($partforum, $context, array('subscribed' => $stryes,
                         'unsubscribed' => $strno, 'forcesubscribed' => $stryes,
-                        'cantsubscribe' => '-'), false, false, true, $subscribed_forums);
+                        'cantsubscribe' => '-'), false, false, true, $subscribed_partforums);
                 } else {
                     $row[] = '-';
                 }
             }
 
-            //If this forum has RSS activated, calculate it
+            //If this partforum has RSS activated, calculate it
             if ($show_rss) {
-                if ($forum->rsstype and $forum->rssarticles) {
+                if ($partforum->rsstype and $partforum->rssarticles) {
                     //Calculate the tolltip text
-                    if ($forum->rsstype == 1) {
+                    if ($partforum->rsstype == 1) {
                         $tooltiptext = get_string('rsssubscriberssdiscussions', 'partforum');
                     } else {
                         $tooltiptext = get_string('rsssubscriberssposts', 'partforum');
                     }
                     //Get html code for RSS link
-                    $row[] = rss_get_link($context->id, $USER->id, 'mod_partforum', $forum->id, $tooltiptext);
+                    $row[] = rss_get_link($context->id, $USER->id, 'mod_partforum', $partforum->id, $tooltiptext);
                 } else {
                     $row[] = '&nbsp;';
                 }
@@ -403,8 +406,8 @@ if ($course->id != SITEID) {    // Only real courses have learning forums
 
 
 /// Output the page
-$PAGE->navbar->add($strforums);
-$PAGE->set_title("$course->shortname: $strforums");
+$PAGE->navbar->add($strpartforums);
+$PAGE->set_title("$course->shortname: $strpartforums");
 $PAGE->set_heading($course->fullname);
 $PAGE->set_button($searchform);
 echo $OUTPUT->header();
@@ -423,13 +426,13 @@ if (!isguestuser()) {
     echo $OUTPUT->box('&nbsp;', 'clearer');
 }
 
-if ($generalforums) {
-    echo $OUTPUT->heading(get_string('generalforums', 'partforum'));
+if ($generalpartforums) {
+    echo $OUTPUT->heading(get_string('generalpartforums', 'partforum'));
     echo html_writer::table($generaltable);
 }
 
-if ($learningforums) {
-    echo $OUTPUT->heading(get_string('learningforums', 'partforum'));
+if ($learningpartforums) {
+    echo $OUTPUT->heading(get_string('learningpartforums', 'partforum'));
     echo html_writer::table($learningtable);
 }
 

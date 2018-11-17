@@ -27,7 +27,7 @@
  */
 
 /**
- * Define the complete forum structure for backup, with file and id annotations
+ * Define the complete partforum structure for backup, with file and id annotations
  */
 class backup_partforum_activity_structure_step extends backup_activity_structure_step {
 
@@ -38,7 +38,7 @@ class backup_partforum_activity_structure_step extends backup_activity_structure
 
         // Define each element separated
 
-        $forum = new backup_nested_element('partforum', array('id'), array(
+        $partforum = new backup_nested_element('partforum', array('id'), array(
             'type', 'name', 'intro', 'introformat',
             'assessed', 'assesstimestart', 'assesstimefinish', 'scale',
             'maxbytes', 'maxattachments', 'forcesubscribe', 'trackingtype',
@@ -83,16 +83,16 @@ class backup_partforum_activity_structure_step extends backup_activity_structure
 
         // Build the tree
 
-        $forum->add_child($discussions);
+        $partforum->add_child($discussions);
         $discussions->add_child($discussion);
 
-        $forum->add_child($subscriptions);
+        $partforum->add_child($subscriptions);
         $subscriptions->add_child($subscription);
 
-        $forum->add_child($readposts);
+        $partforum->add_child($readposts);
         $readposts->add_child($read);
 
-        $forum->add_child($trackedprefs);
+        $partforum->add_child($trackedprefs);
         $trackedprefs->add_child($track);
 
         $discussion->add_child($posts);
@@ -103,14 +103,14 @@ class backup_partforum_activity_structure_step extends backup_activity_structure
 
         // Define sources
 
-        $forum->set_source_table('partforum', array('id' => backup::VAR_ACTIVITYID));
+        $partforum->set_source_table('partforum', array('id' => backup::VAR_ACTIVITYID));
 
         // All these source definitions only happen if we are including user info
         if ($userinfo) {
             $discussion->set_source_sql('
                 SELECT *
                   FROM {partforum_discussions}
-                 WHERE forum = ?',
+                 WHERE partforum = ?',
                 array(backup::VAR_PARENTID));
 
             // Need posts ordered by id so parents are always before childs on restore
@@ -119,11 +119,11 @@ class backup_partforum_activity_structure_step extends backup_activity_structure
                                     WHERE discussion = :discussion
                                  ORDER BY id", array('discussion' => backup::VAR_PARENTID));
 
-            $subscription->set_source_table('partforum_subscriptions', array('forum' => backup::VAR_PARENTID));
+            $subscription->set_source_table('partforum_subscriptions', array('partforum' => backup::VAR_PARENTID));
 
-            $read->set_source_table('partforum_read', array('forumid' => backup::VAR_PARENTID));
+            $read->set_source_table('partforum_read', array('partforumid' => backup::VAR_PARENTID));
 
-            $track->set_source_table('partforum_track_prefs', array('forumid' => backup::VAR_PARENTID));
+            $track->set_source_table('partforum_track_prefs', array('partforumid' => backup::VAR_PARENTID));
 
             $rating->set_source_table('rating', array('contextid'  => backup::VAR_CONTEXTID,
                                                       'component'  => backup_helper::is_sqlparam('mod_partforum'),
@@ -134,7 +134,7 @@ class backup_partforum_activity_structure_step extends backup_activity_structure
 
         // Define id annotations
 
-        $forum->annotate_ids('scale', 'scale');
+        $partforum->annotate_ids('scale', 'scale');
 
         $discussion->annotate_ids('group', 'groupid');
 
@@ -152,13 +152,13 @@ class backup_partforum_activity_structure_step extends backup_activity_structure
 
         // Define file annotations
 
-        $forum->annotate_files('mod_partforum', 'intro', null); // This file area hasn't itemid
+        $partforum->annotate_files('mod_partforum', 'intro', null); // This file area hasn't itemid
 
         $post->annotate_files('mod_partforum', 'post', 'id');
         $post->annotate_files('mod_partforum', 'attachment', 'id');
 
-        // Return the root element (forum), wrapped into standard activity structure
-        return $this->prepare_activity_structure($forum);
+        // Return the root element (partforum), wrapped into standard activity structure
+        return $this->prepare_activity_structure($partforum);
     }
 
 }

@@ -19,7 +19,7 @@
  * Provides support for the conversion of moodle1 backup to the moodle2 format
  *
  * @package    mod
- * @subpackage forum
+ * @subpackage partforum
  * @copyright  2011 Mark Nielsen <mark@moodlerooms.com>
  * @license    http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -87,7 +87,7 @@ class moodle1_mod_partforum_handler extends moodle1_mod_handler {
         $this->fileman->itemid   = 0;
         $data['intro'] = moodle1_converter::migrate_referenced_files($data['intro'], $this->fileman);
 
-        // start writing forum.xml
+        // start writing partforum.xml
         $this->open_xml_writer("activities/partforum_{$this->moduleid}/partforum.xml");
         $this->xmlwriter->begin_tag('activity', array('id' => $instanceid, 'moduleid' => $this->moduleid,
             'modulename' => 'partforum', 'contextid' => $contextid));
@@ -107,8 +107,8 @@ class moodle1_mod_partforum_handler extends moodle1_mod_handler {
     /**
      * This is executed when we reach the closing </MOD> tag of our 'partforum' path
      */
-    public function on_forum_end() {
-        // finish writing forum.xml
+    public function on_partforum_end() {
+        // finish writing partforum.xml
         $this->xmlwriter->end_tag('discussions');
         $this->xmlwriter->end_tag('partforum');
         $this->xmlwriter->end_tag('activity');

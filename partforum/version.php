@@ -19,13 +19,16 @@
  * Code fragment to define the module version etc.
  * This fragment is called by /admin/index.php
  *
- * @package mod-forum
+ * @package mod-partforum
  * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
  * @copyright 2012 onwards The University of Hong Kong
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
 
-$module->version  = 2013010601;		// Participation Forum 1.2.2
-$module->requires = 2011052300;  	// Requires this Moodle version
-$module->cron     = 60;
-$module->component = 'mod_partforum'; // Full name of the plugin (used for diagnostics)
+defined('MOODLE_INTERNAL') || die(); 
+ 
+$plugin->version  = 2016053100;		// Participation Forum 1.2.2
+$plugin->requires = 2015111000;  	// Requires this Moodle version
+$plugin->cron     = 60;
+$plugin->component = 'mod_partforum'; // Full name of the plugin (used for diagnostics)
+$plugin->release = 'v1.6.3';

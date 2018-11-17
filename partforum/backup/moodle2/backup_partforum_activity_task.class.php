@@ -26,7 +26,7 @@ require_once($CFG->dirroot . '/mod/partforum/backup/moodle2/backup_partforum_ste
 require_once($CFG->dirroot . '/mod/partforum/backup/moodle2/backup_partforum_settingslib.php'); // Because it exists (optional)
 
 /**
- * forum backup task that provides all the settings and steps to perform one
+ * partforum backup task that provides all the settings and steps to perform one
  * complete backup of the activity
  */
 class backup_partforum_activity_task extends backup_activity_task {
@@ -43,7 +43,7 @@ class backup_partforum_activity_task extends backup_activity_task {
      */
     protected function define_my_steps() {
         // Forum only has one structure step
-        $this->add_step(new backup_forum_activity_structure_step('partforum structure', 'partforum.xml'));
+        $this->add_step(new backup_partforum_activity_structure_step('partforum structure', 'partforum.xml'));
     }
 
     /**
@@ -55,27 +55,27 @@ class backup_partforum_activity_task extends backup_activity_task {
 
         $base = preg_quote($CFG->wwwroot,"/");
 
-        // Link to the list of forums
+        // Link to the list of partforums
         $search="/(".$base."\/mod\/partforum\/index.php\?id\=)([0-9]+)/";
         $content= preg_replace($search, '$@PARTFORUMINDEX*$2@$', $content);
 
-        // Link to forum view by moduleid
+        // Link to partforum view by moduleid
         $search="/(".$base."\/mod\/partforum\/view.php\?id\=)([0-9]+)/";
         $content= preg_replace($search, '$@PARTFORUMVIEWBYID*$2@$', $content);
 
-        // Link to forum view by forumid
+        // Link to partforum view by partforumid
         $search="/(".$base."\/mod\/partforum\/view.php\?f\=)([0-9]+)/";
         $content= preg_replace($search, '$@PARTFORUMVIEWBYF*$2@$', $content);
 
-        // Link to forum discussion with parent syntax
+        // Link to partforum discussion with parent syntax
         $search="/(".$base."\/mod\/partforum\/discuss.php\?d\=)([0-9]+)\&parent\=([0-9]+)/";
         $content= preg_replace($search, '$@PARTFORUMDISCUSSIONVIEWPARENT*$2*$3@$', $content);
 
-        // Link to forum discussion with relative syntax
+        // Link to partforum discussion with relative syntax
         $search="/(".$base."\/mod\/partforum\/discuss.php\?d\=)([0-9]+)\#([0-9]+)/";
         $content= preg_replace($search, '$@PARTFORUMDISCUSSIONVIEWINSIDE*$2*$3@$', $content);
 
-        // Link to forum discussion by discussionid
+        // Link to partforum discussion by discussionid
         $search="/(".$base."\/mod\/partforum\/discuss.php\?d\=)([0-9]+)/";
         $content= preg_replace($search, '$@PARTFORUMDISCUSSIONVIEW*$2@$', $content);
 

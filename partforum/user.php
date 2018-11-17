@@ -18,7 +18,7 @@
 /**
  * Display user activity reports for a course
  *
- * @package mod-forum
+ * @package mod-partforum
  * @copyright 1999 onwards Martin Dougiamas  {@link http://moodle.com}
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -75,7 +75,7 @@ if ($user->deleted) {
 add_to_log($course->id, "partforum", "user report",
         "user.php?course=$course->id&amp;id=$user->id&amp;mode=$mode", "$user->id");
 
-$strforumposts   = get_string('forumposts', 'partforum');
+$strpartforumposts   = get_string('partforumposts', 'partforum');
 $strparticipants = get_string('participants');
 $strmode         = get_string($mode, 'partforum');
 $fullname        = fullname($user, has_capability('moodle/site:viewfullnames', $syscontext));
@@ -127,10 +127,10 @@ if ($posts) {
     echo $OUTPUT->paging_bar($totalcount, $page, $perpage, $baseurl);
 
     $discussions = array();
-    $forums      = array();
+    $partforums      = array();
 
     //todo Rather than retrieving the ratings for each post individually it would be nice to do them in groups
-    //however this requires creating arrays of posts with each array containing all of the posts from a particular forum,
+    //however this requires creating arrays of posts with each array containing all of the posts from a particular partforum,
     //retrieving the ratings then reassembling them all back into a single array sorted by post.modified (descending)
     $rm = new rating_manager();
     $ratingoptions = new stdClass;
@@ -148,29 +148,29 @@ if ($posts) {
             $discussion = $discussions[$post->discussion];
         }
 
-        if (!isset($forums[$discussion->forum])) {
-            $forum = $DB->get_record('partforum', array('id' => $discussion->forum), '*', MUST_EXIST);
-            $forum->cm = get_coursemodule_from_instance('partforum', $forum->id, 0, false, MUST_EXIST);
-            $forum->context = get_context_instance(CONTEXT_MODULE, $forum->cm->id);
-            $forums[$discussion->forum] = $forum;
+        if (!isset($partforums[$discussion->partforum])) {
+            $partforum = $DB->get_record('partforum', array('id' => $discussion->partforum), '*', MUST_EXIST);
+            $partforum->cm = get_coursemodule_from_instance('partforum', $partforum->id, 0, false, MUST_EXIST);
+            $partforum->context = get_context_instance(CONTEXT_MODULE, $partforum->cm->id);
+            $partforums[$discussion->partforum] = $partforum;
         } else {
-            $forum = $forums[$discussion->forum];
+            $partforum = $partforums[$discussion->partforum];
         }
 
-        $forumurl = new moodle_url('/mod/partforum/view.php', array('id' => $forum->cm->id));
+        $partforumurl = new moodle_url('/mod/partforum/view.php', array('id' => $partforum->cm->id));
         $discussionurl = new moodle_url('/mod/partforum/discuss.php', array('d' => $discussion->id));
 
         // load ratings
-        if ($forum->assessed != RATING_AGGREGATE_NONE) {
-            $ratingoptions->context = $forum->context;
+        if ($partforum->assessed != RATING_AGGREGATE_NONE) {
+            $ratingoptions->context = $partforum->context;
             $ratingoptions->items = array($post);
-            $ratingoptions->aggregate = $forum->assessed;//the aggregation method
-            $ratingoptions->scaleid = $forum->scale;
+            $ratingoptions->aggregate = $partforum->assessed;//the aggregation method
+            $ratingoptions->scaleid = $partforum->scale;
             $ratingoptions->userid = $user->id;
-            $ratingoptions->assesstimestart = $forum->assesstimestart;
-            $ratingoptions->assesstimefinish = $forum->assesstimefinish;
-            if ($forum->type == 'single' or !$discussion->id) {
-                $ratingoptions->returnurl = $forumurl;
+            $ratingoptions->assesstimestart = $partforum->assesstimestart;
+            $ratingoptions->assesstimefinish = $partforum->assesstimefinish;
+            if ($partforum->type == 'single' or !$discussion->id) {
+                $ratingoptions->returnurl = $partforumurl;
             } else {
                 $ratingoptions->returnurl = $discussionurl;
             }
@@ -182,12 +182,12 @@ if ($posts) {
 
         $fullsubjects = array();
         if ($course->id == SITEID && has_capability('moodle/site:config', $syscontext)) {
-            $postcoursename = $DB->get_field('course', 'shortname', array('id'=>$forum->course));
-            $courseurl = new moodle_url('/course/view.php', array('id' => $forum->course));
+            $postcoursename = $DB->get_field('course', 'shortname', array('id'=>$partforum->course));
+            $courseurl = new moodle_url('/course/view.php', array('id' => $partforum->course));
             $fullsubjects[] = html_writer::link($courseurl, $postcoursename);
         }
-        $fullsubjects[] = html_writer::link($forumurl, format_string($forum->name, true));
-        if ($forum->type != 'single') {
+        $fullsubjects[] = html_writer::link($partforumurl, format_string($partforum->name, true));
+        if ($partforum->type != 'single') {
             $fullsubjects[] .= html_writer::link($discussionurl, format_string($discussion->name, true));
             if ($post->parent != 0) {
                 $parenturl = new moodle_url('/mod/partforum/discuss.php', array('d' => $post->discussion, 'parent' => $post->id));
@@ -199,7 +199,7 @@ if ($posts) {
         $discussionurl->set_anchor('p'.$post->id);
         $fulllink = html_writer::link($discussionurl, get_string("postincontext", "partforum"));
 
-        partforum_print_post($post, $discussion, $forum, $forum->cm, $course, false, false, false, $fulllink);
+        partforum_print_post($post, $discussion, $partforum, $partforum->cm, $course, false, false, false, $fulllink);
         echo "<br />";
     }
 

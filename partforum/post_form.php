@@ -16,7 +16,7 @@
 // along with Moodle.  If not, see <http://www.gnu.org/licenses/>.
 
 /**
- * @package mod-forum
+ * @package mod-partforum
  * @copyright Jamie Pratt <me@jamiep.org>
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -38,11 +38,11 @@ class mod_partforum_post_form extends moodleform {
         $cm            = $this->_customdata['cm'];
         $coursecontext = $this->_customdata['coursecontext'];
         $modcontext    = $this->_customdata['modcontext'];
-        $forum         = $this->_customdata['forum'];
+        $partforum         = $this->_customdata['partforum'];
         $post          = $this->_customdata['post'];
-        // if $forum->maxbytes == '0' means we should use $course->maxbytes
-        if ($forum->maxbytes == '0') {
-            $forum->maxbytes = $course->maxbytes;
+        // if $partforum->maxbytes == '0' means we should use $course->maxbytes
+        if ($partforum->maxbytes == '0') {
+            $partforum->maxbytes = $course->maxbytes;
         }
         // TODO: add max files and max size support
         $editoroptions = array('maxfiles' => EDITOR_UNLIMITED_FILES, 'trusttext'=>true, 'context'=>$modcontext);
@@ -51,7 +51,7 @@ class mod_partforum_post_form extends moodleform {
         
         $discussion = $post->discussion;
 		$userid = $post->userid;
-        $count = partforum_count_user_replies($forum->id, $userid);
+        $count = partforum_count_user_replies($partforum->id, $userid);
 			
 		// Is this the first post?
 		switch($count){
@@ -67,7 +67,7 @@ class mod_partforum_post_form extends moodleform {
         /*
         * Participation Forum - Default discussion subject
         * !!! currently disabled awaiting decision for future use
-        if($forum->type == 'participation' && isset($post->parent) && $post->parent > 0){
+        if($partforum->type == 'participation' && isset($post->parent) && $post->parent > 0){
         
         	$mform->addElement('text', 'subject', get_string('subject', 'partforum'), 'size="48" readonly="readonly"');
 			
@@ -87,7 +87,7 @@ class mod_partforum_post_form extends moodleform {
         //}
         
         // Clear the subject field and focus
-        $count_posts = partforum_count_user_posts($forum->id, $userid);
+        $count_posts = partforum_count_user_posts($partforum->id, $userid);
 /*echo '<p>count:<b>';
 echo print_r($count_posts);
 echo '</b></p>';        
@@ -116,7 +116,7 @@ echo '</b></p>';
 		* Participation Forum - Reply type
 		* (Doesn't appear if this is the first post in the discussion)
 		*/
-		if($forum->type == 'participation' && isset($post->parent) && $post->parent > 0){
+		if($partforum->type == 'participation' && isset($post->parent) && $post->parent > 0){
 			$options = array();
             $options[0] = get_string('substantivecontribution', 'partforum');
             
@@ -134,14 +134,14 @@ echo '</b></p>';
 		/*
 		* Subscription settings
 		*/
-        if (isset($forum->id) && partforum_is_forcesubscribed($forum)) {
+        if (isset($partforum->id) && partforum_is_forcesubscribed($partforum)) {
 
             $mform->addElement('static', 'subscribemessage', get_string('subscription', 'partforum'), get_string('everyoneissubscribed', 'partforum'));
             $mform->addElement('hidden', 'subscribe');
             $mform->setType('subscribe', PARAM_INT);
             $mform->addHelpButton('subscribemessage', 'subscription', 'partforum');
 
-        } else if (isset($forum->forcesubscribe)&& $forum->forcesubscribe != PARTFORUM_DISALLOWSUBSCRIBE ||
+        } else if (isset($partforum->forcesubscribe)&& $partforum->forcesubscribe != PARTFORUM_DISALLOWSUBSCRIBE ||
                    has_capability('moodle/course:manageactivities', $coursecontext)) {
 
             $options = array();
@@ -150,18 +150,18 @@ echo '</b></p>';
 
             $mform->addElement('select', 'subscribe', get_string('subscription', 'partforum'), $options);
             $mform->addHelpButton('subscribe', 'subscription', 'partforum');
-        } else if ($forum->forcesubscribe == PARTFORUM_DISALLOWSUBSCRIBE) {
+        } else if ($partforum->forcesubscribe == PARTFORUM_DISALLOWSUBSCRIBE) {
             $mform->addElement('static', 'subscribemessage', get_string('subscription', 'partforum'), get_string('disallowsubscribe', 'partforum'));
             $mform->addElement('hidden', 'subscribe');
             $mform->setType('subscribe', PARAM_INT);
             $mform->addHelpButton('subscribemessage', 'subscription', 'partforum');
         }
 
-        if (!empty($forum->maxattachments) && $forum->maxbytes != 1 && has_capability('mod/partforum:createattachment', $modcontext))  {  //  1 = No attachments at all
+        if (!empty($partforum->maxattachments) && $partforum->maxbytes != 1 && has_capability('mod/partforum:createattachment', $modcontext))  {  //  1 = No attachments at all
             $mform->addElement('filemanager', 'attachments', get_string('attachment', 'partforum'), null,
                 array('subdirs'=>0,
-                      'maxbytes'=>$forum->maxbytes,
-                      'maxfiles'=>$forum->maxattachments,
+                      'maxbytes'=>$partforum->maxbytes,
+                      'maxfiles'=>$partforum->maxattachments,
                       'accepted_types'=>'*',
                       'return_types'=>FILE_INTERNAL));
             $mform->addHelpButton('attachments', 'attachment', 'partforum');
@@ -171,7 +171,7 @@ echo '</b></p>';
             $mform->addElement('checkbox', 'mailnow', get_string('mailnow', 'partforum'));
         }
 
-        if (!empty($CFG->forum_enabletimedposts) && !$post->parent && has_capability('mod/partforum:viewhiddentimedposts', $coursecontext)) { // hack alert
+        if (!empty($CFG->partforum_enabletimedposts) && !$post->parent && has_capability('mod/partforum:viewhiddentimedposts', $coursecontext)) { // hack alert
             $mform->addElement('header', '', get_string('displayperiod', 'partforum'));
 
             $mform->addElement('date_selector', 'timestart', get_string('displaystart', 'partforum'), array('optional'=>true));
@@ -202,15 +202,18 @@ echo '</b></p>';
         if (isset($post->edit)) { // hack alert
             $submit_string = get_string('savechanges');
         } else {
-            $submit_string = get_string('posttoforum', 'partforum');
+			if(isset($post->reply))
+            $submit_string = get_string('posttoforumreply', 'partforum');
+			else
+			$submit_string = get_string('posttopartforum', 'partforum');
         }
         $this->add_action_buttons(false, $submit_string);
 
         $mform->addElement('hidden', 'course');
         $mform->setType('course', PARAM_INT);
 
-        $mform->addElement('hidden', 'forum');
-        $mform->setType('forum', PARAM_INT);
+        $mform->addElement('hidden', 'partforum');
+        $mform->setType('partforum', PARAM_INT);
 
         $mform->addElement('hidden', 'discussion');
         $mform->setType('discussion', PARAM_INT);

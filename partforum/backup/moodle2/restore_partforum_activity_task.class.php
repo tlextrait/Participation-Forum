@@ -27,7 +27,7 @@ defined('MOODLE_INTERNAL') || die();
 require_once($CFG->dirroot . '/mod/partforum/backup/moodle2/restore_partforum_stepslib.php'); // Because it exists (must)
 
 /**
- * forum restore task that provides all the settings and steps to perform one
+ * partforum restore task that provides all the settings and steps to perform one
  * complete restore of the activity
  */
 class restore_partforum_activity_task extends restore_activity_task {
@@ -67,12 +67,12 @@ class restore_partforum_activity_task extends restore_activity_task {
     static public function define_decode_rules() {
         $rules = array();
 
-        // List of forums in course
+        // List of partforums in course
         $rules[] = new restore_decode_rule('PARTFORUMINDEX', '/mod/partforum/index.php?id=$1', 'course');
-        // Forum by cm->id and forum->id
+        // Forum by cm->id and partforum->id
         $rules[] = new restore_decode_rule('PARTFORUMVIEWBYID', '/mod/partforum/view.php?id=$1', 'course_module');
         $rules[] = new restore_decode_rule('PARTFORUMVIEWBYF', '/mod/partforum/view.php?f=$1', 'partforum');
-        // Link to forum discussion
+        // Link to partforum discussion
         $rules[] = new restore_decode_rule('PARTFORUMDISCUSSIONVIEW', '/mod/partforum/discuss.php?d=$1', 'partforum_discussion');
         // Link to discussion with parent and with anchor posts
         $rules[] = new restore_decode_rule('PARTFORUMDISCUSSIONVIEWPARENT', '/mod/partforum/discuss.php?d=$1&parent=$2',
@@ -86,7 +86,7 @@ class restore_partforum_activity_task extends restore_activity_task {
     /**
      * Define the restore log rules that will be applied
      * by the {@link restore_logs_processor} when restoring
-     * forum logs. It must return one array
+     * partforum logs. It must return one array
      * of {@link restore_log_rule} objects
      */
     static public function define_restore_log_rules() {
@@ -95,7 +95,7 @@ class restore_partforum_activity_task extends restore_activity_task {
         $rules[] = new restore_log_rule('partforum', 'add', 'view.php?id={course_module}', '{partforum}');
         $rules[] = new restore_log_rule('partforum', 'update', 'view.php?id={course_module}', '{partforum}');
         $rules[] = new restore_log_rule('partforum', 'view', 'view.php?id={course_module}', '{partforum}');
-        $rules[] = new restore_log_rule('partforum', 'view forum', 'view.php?id={course_module}', '{partforum}');
+        $rules[] = new restore_log_rule('partforum', 'view partforum', 'view.php?id={course_module}', '{partforum}');
         $rules[] = new restore_log_rule('partforum', 'mark read', 'view.php?f={partforum}', '{partforum}');
         $rules[] = new restore_log_rule('partforum', 'start tracking', 'view.php?f={partforum}', '{partforum}');
         $rules[] = new restore_log_rule('partforum', 'stop tracking', 'view.php?f={partforum}', '{partforum}');
@@ -105,7 +105,7 @@ class restore_partforum_activity_task extends restore_activity_task {
         $rules[] = new restore_log_rule('partforum', 'subscribers', 'subscribers.php?id={partforum}', '{partforum}');
         $rules[] = new restore_log_rule('partforum', 'view subscribers', 'subscribers.php?id={partforum}', '{partforum}');
         $rules[] = new restore_log_rule('partforum', 'add discussion', 'discuss.php?d={partforum_discussion}', '{partforum_discussion}');
-        $rules[] = new restore_log_rule('partforum', 'view discussion', 'discuss.php?d={forum_discussion}', '{partforum_discussion}');
+        $rules[] = new restore_log_rule('partforum', 'view discussion', 'discuss.php?d={partforum_discussion}', '{partforum_discussion}');
         $rules[] = new restore_log_rule('partforum', 'move discussion', 'discuss.php?d={partforum_discussion}', '{partforum_discussion}');
         $rules[] = new restore_log_rule('partforum', 'delete discussi', 'view.php?id={course_module}', '{partforum}',
                                         null, 'delete discussion');
@@ -131,7 +131,7 @@ class restore_partforum_activity_task extends restore_activity_task {
     static public function define_restore_log_rules_for_course() {
         $rules = array();
 
-        $rules[] = new restore_log_rule('partforum', 'view forums', 'index.php?id={course}', null);
+        $rules[] = new restore_log_rule('partforum', 'view partforums', 'index.php?id={course}', null);
         $rules[] = new restore_log_rule('partforum', 'subscribeall', 'index.php?id={course}', '{course}');
         $rules[] = new restore_log_rule('partforum', 'unsubscribeall', 'index.php?id={course}', '{course}');
         $rules[] = new restore_log_rule('partforum', 'user report', 'user.php?course={course}&id={user}&mode=[mode]', '{user}');

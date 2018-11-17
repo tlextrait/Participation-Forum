@@ -17,7 +17,7 @@
 
 /**
  * This file keeps track of upgrades to
- * the forum module
+ * the partforum module
  *
  * Sometimes, changes between versions involve
  * alterations to database structures and other
@@ -36,7 +36,7 @@
  * Please do not forget to use upgrade_set_timeout()
  * before any action that may take longer time to finish.
  *
- * @package mod-forum
+ * @package mod-partforum
  * @copyright 2012 onwards The University of Hong Kong
  * @license   http://www.gnu.org/copyleft/gpl.html GNU GPL v3 or later
  */
@@ -45,12 +45,54 @@ function xmldb_partforum_upgrade($oldversion) {
 	global $CFG, $DB, $OUTPUT;
 
     $dbman = $DB->get_manager(); // loads ddl manager and xmldb classes
-   
-    // Anything before version 1.2.0
-    if($oldversion < 2120000000){
-    
-    }
+        // Moodle v3.0.3 release upgrade line.
+    if ($oldversion < 2016053100) {
+        
+        // Rename field question on table partforum_discussions to partforum.
+        $table1 = new xmldb_table('partforum_discussions');
+        $field1 = new xmldb_field('forum', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', null);
 
+        // Launch rename field question.
+        if ($dbman->field_exists($table1, $field1)) {
+            $dbman->rename_field($table1, $field1, 'partforum');
+        }        
+        //-----------------------------------------------------------------------------
+        
+         // Rename field question on table partforum_read to partforumid.
+        $table2 = new xmldb_table('partforum_read');
+        $field2 = new xmldb_field('forumid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', null);
+
+        // Launch rename field question.
+        if ($dbman->field_exists($table2, $field2)) {
+            $dbman->rename_field($table2, $field2, 'partforumid');
+        }
+        //-----------------------------------------------------------------------------
+        
+        // Rename field question on table partforum_subscriptions to partforum.
+        $table3 = new xmldb_table('partforum_subscriptions');
+        $field3 = new xmldb_field('forum', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', null);
+
+        // Launch rename field question.
+        if ($dbman->field_exists($table3, $field3)) {
+           $dbman->rename_field($table3, $field3, 'partforum');
+        }
+        //-----------------------------------------------------------------------------
+        
+        // Rename field question on table partforum_track_prefs to partforumid.
+        $table4 = new xmldb_table('partforum_track_prefs');
+        $field4 = new xmldb_field('forumid', XMLDB_TYPE_INTEGER, '10', null, XMLDB_NOTNULL, null, '0', null);
+
+        // Launch rename field question.
+        if ($dbman->field_exists($table4, $field4)) {
+            $dbman->rename_field($table4, $field4, 'partforumid');
+        }
+        //-----------------------------------------------------------------------------
+        
+        // Forum savepoint reached.
+        upgrade_mod_savepoint(true, 2016053100, 'partforum');        
+       
+    }
+    
     return true;
 }
 

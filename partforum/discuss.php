@@ -29,7 +29,7 @@
     $d      = required_param('d', PARAM_INT);                // Discussion ID
     $parent = optional_param('parent', 0, PARAM_INT);        // If set, then display this post and all children.
     $mode   = optional_param('mode', 0, PARAM_INT);          // If set, changes the layout of the thread
-    $move   = optional_param('move', 0, PARAM_INT);          // If set, moves this discussion to another forum
+    $move   = optional_param('move', 0, PARAM_INT);          // If set, moves this discussion to another partforum
     $mark   = optional_param('mark', '', PARAM_ALPHA);       // Used for tracking read posts if user initiated.
     $postid = optional_param('postid', 0, PARAM_INT);        // Used for tracking read posts if user initiated.
 
@@ -38,11 +38,14 @@
         $url->param('parent', $parent);
     }
     $PAGE->set_url($url);
-
+	$PAGE->requires->jquery();
+    $PAGE->requires->jquery_plugin('ui');
+	
+	
     $discussion = $DB->get_record('partforum_discussions', array('id' => $d), '*', MUST_EXIST);
     $course = $DB->get_record('course', array('id' => $discussion->course), '*', MUST_EXIST);
-    $forum = $DB->get_record('partforum', array('id' => $discussion->forum), '*', MUST_EXIST);
-    $cm = get_coursemodule_from_instance('partforum', $forum->id, $course->id, false, MUST_EXIST);
+    $partforum = $DB->get_record('partforum', array('id' => $discussion->partforum), '*', MUST_EXIST);
+    $cm = get_coursemodule_from_instance('partforum', $partforum->id, $course->id, false, MUST_EXIST);
 
     require_course_login($course, true, $cm);
 
@@ -54,21 +57,21 @@
     // move this down fix for MDL-6926
     require_once($CFG->dirroot.'/mod/partforum/lib.php');
 
-    $modcontext = get_context_instance(CONTEXT_MODULE, $cm->id);
+    $modcontext = context_module::instance($cm->id);
     require_capability('mod/partforum:viewdiscussion', $modcontext, NULL, true, 'noviewdiscussionspermission', 'partforum');
 
-    if (!empty($CFG->enablerssfeeds) && !empty($CFG->forum_enablerssfeeds) && $forum->rsstype && $forum->rssarticles) {
+    if (!empty($CFG->enablerssfeeds) && !empty($CFG->partforum_enablerssfeeds) && $partforum->rsstype && $partforum->rssarticles) {
         require_once("$CFG->libdir/rsslib.php");
 
         $rsstitle = format_string($course->shortname) . ': %fullname%';
-        rss_add_http_header($modcontext, 'mod_partforum', $forum, $rsstitle);
+        rss_add_http_header($modcontext, 'mod_partforum', $partforum, $rsstitle);
     }
 
-    if ($forum->type == 'news') {
+    if ($partforum->type == 'news') {
         if (!($USER->id == $discussion->userid || (($discussion->timestart == 0
             || $discussion->timestart <= time())
             && ($discussion->timeend == 0 || $discussion->timeend > time())))) {
-            print_error('invaliddiscussionid', 'forum', "$CFG->wwwroot/mod/partforum/view.php?f=$forum->id");
+            print_error('invaliddiscussionid', 'partforum', "$CFG->wwwroot/mod/partforum/view.php?f=$partforum->id");
         }
     }
 
@@ -78,51 +81,67 @@
 
         require_capability('mod/partforum:movediscussions', $modcontext);
 
-        if ($forum->type == 'single') {
-            print_error('cannotmovefromsingleforum', 'partforum', $return);
+        if ($partforum->type == 'single') {
+            print_error('cannotmovefromsinglepartforum', 'partforum', $return);
         }
 
-        if (!$forumto = $DB->get_record('partforum', array('id' => $move))) {
+        if (!$partforumto = $DB->get_record('partforum', array('id' => $move))) {
             print_error('cannotmovetonotexist', 'partforum', $return);
         }
 
-        if (!$cmto = get_coursemodule_from_instance('partforum', $forumto->id, $course->id)) {
-            print_error('cannotmovetonotfound', 'partforum', $return);
-        }
+	// 20151026 updated by Murphy
+        // if (!$cmto = get_coursemodule_from_instance('partforum', $partforumto->id, $course->id)) {
+        //     print_error('cannotmovetonotfound', 'partforum', $return);
+        // }
+	//
+        // if (!coursemodule_visible_for_user($cmto)) {
+        //     print_error('cannotmovenotvisible', 'partforum', $return);
+        // }
+    // Get target partforum cm and check it is visible to current user.
+    $modinfo = get_fast_modinfo($course);
+    $partforums = $modinfo->get_instances_of('partforum');
+	print_object($partforums);
+    if (!array_key_exists($partforumto->id, $partforums)) {
+        print_error('cannotmovetonotfound', 'partforum', $return);
+    }
+    $cmto = $partforums[$partforumto->id];
+    if (!$cmto->uservisible) {
+        print_error('cannotmovenotvisible', 'partforum', $return);
+    }
 
-        if (!coursemodule_visible_for_user($cmto)) {
-            print_error('cannotmovenotvisible', 'partforum', $return);
-        }
 
-        require_capability('mod/partforum:startdiscussion', get_context_instance(CONTEXT_MODULE,$cmto->id));
+        require_capability('mod/partforum:startdiscussion', context_module::instance($cmto->id));
 
-        if (!partforum_move_attachments($discussion, $forum->id, $forumto->id)) {
+        if (!partforum_move_attachments($discussion, $partforum->id, $partforumto->id)) {
             echo $OUTPUT->notification("Errors occurred while moving attachment directories - check your file permissions");
         }
-        $DB->set_field('partforum_discussions', 'partforum', $forumto->id, array('id' => $discussion->id));
-        $DB->set_field('partforum_read', 'forumid', $forumto->id, array('discussionid' => $discussion->id));
+        $DB->set_field('partforum_discussions', 'partforum', $partforumto->id, array('id' => $discussion->id));
+        $DB->set_field('partforum_read', 'partforumid', $partforumto->id, array('discussionid' => $discussion->id));
         add_to_log($course->id, 'partforum', 'move discussion', "discuss.php?d=$discussion->id", $discussion->id, $cmto->id);
 
         require_once($CFG->libdir.'/rsslib.php');
         require_once($CFG->dirroot.'/mod/partforum/rsslib.php');
 
-        // Delete the RSS files for the 2 forums to force regeneration of the feeds
-        partforum_rss_delete_file($forum);
-        partforum_rss_delete_file($forumto);
+        // Delete the RSS files for the 2 partforums to force regeneration of the feeds
+        partforum_rss_delete_file($partforum);
+        partforum_rss_delete_file($partforumto);
 
         redirect($return.'&moved=-1&sesskey='.sesskey());
     }
 
-    //add_to_log($course->id, 'forum', 'view discussion', $PAGE->url->out(false), $discussion->id, $cm->id);
-	add_to_log($course->id, 'partforum', 'view discussion', "discuss.php?d=$discussion->id", $discussion->id, $cm->id);
+	// Trigger discussion viewed event updated by hema.
+    partforum_discussion_view($modcontext, $partforum, $discussion);
+	
+    //add_to_log($course->id, 'partforum', 'view discussion', $PAGE->url->out(false), $discussion->id, $cm->id);
+	//add_to_log($course->id, 'partforum', 'view discussion', "discuss.php?d=$discussion->id", $discussion->id, $cm->id);
 
     unset($SESSION->fromdiscussion);
 
     if ($mode) {
-        set_user_preference('forum_displaymode', $mode);
+        set_user_preference('partforum_displaymode', $mode);
     }
 
-    $displaymode = get_user_preferences('forum_displaymode', $CFG->forum_displaymode);
+    $displaymode = get_user_preferences('partforum_displaymode', $CFG->forum_displaymode);
 
     if ($parent) {
         // If flat AND parent, then force nested display this time
@@ -134,16 +153,16 @@
     }
 
     if (! $post = partforum_get_post_full($parent)) {
-        print_error("notexists", 'partforum', "$CFG->wwwroot/mod/partforum/view.php?f=$forum->id");
+        print_error("notexists", 'partforum', "$CFG->wwwroot/mod/partforum/view.php?f=$partforum->id");
     }
+ 
 
-
-    if (!partforum_user_can_view_post($post, $course, $cm, $forum, $discussion)) {
-        print_error('nopermissiontoview', 'partforum', "$CFG->wwwroot/mod/partforum/view.php?id=$forum->id");
+    if (!partforum_user_can_view_post($post, $course, $cm, $partforum, $discussion)) {
+        print_error('nopermissiontoview', 'partforum', "$CFG->wwwroot/mod/partforum/view.php?id=$partforum->id");
     }
 
     if ($mark == 'read' or $mark == 'unread') {
-        if ($CFG->forum_usermarksread && partforum_tp_can_track_forums($forum) && partforum_tp_is_tracked($forum)) {
+        if ($CFG->partforum_usermarksread && partforum_tp_can_track_partforums($partforum) && partforum_tp_is_tracked($partforum)) {
             if ($mark == 'read') {
                 partforum_tp_add_read_record($USER->id, $postid);
             } else {
@@ -155,13 +174,13 @@
 
     $searchform = partforum_search_form($course);
 
-    $forumnode = $PAGE->navigation->find($cm->id, navigation_node::TYPE_ACTIVITY);
-    if (empty($forumnode)) {
-        $forumnode = $PAGE->navbar;
+    $partforumnode = $PAGE->navigation->find($cm->id, navigation_node::TYPE_ACTIVITY);
+    if (empty($partforumnode)) {
+        $partforumnode = $PAGE->navbar;
     } else {
-        $forumnode->make_active();
+        $partforumnode->make_active();
     }
-    $node = $forumnode->add(format_string($discussion->name), new moodle_url('/mod/partforum/discuss.php', array('d'=>$discussion->id)));
+    $node = $partforumnode->add(format_string($discussion->name), new moodle_url('/mod/partforum/discuss.php', array('d'=>$discussion->id)));
     $node->display = false;
     if ($node && $post->id != $discussion->firstpost) {
         $node->add(format_string($post->subject), $PAGE->url);
@@ -172,12 +191,12 @@
     $PAGE->set_button($searchform);
     echo $OUTPUT->header();
 
-/// Check to see if groups are being used in this forum
+/// Check to see if groups are being used in this partforum
 /// If so, make sure the current person is allowed to see this discussion
 /// Also, if we know they should be able to reply, then explicitly set $canreply for performance reasons
 
-    $canreply = partforum_user_can_post($forum, $discussion, $USER, $cm, $course, $modcontext);
-    if (!$canreply and $forum->type !== 'news') {
+    $canreply = partforum_user_can_post($partforum, $discussion, $USER, $cm, $course, $modcontext);
+    if (!$canreply and $partforum->type !== 'news') {
         if (isguestuser() or !isloggedin()) {
             $canreply = true;
         }
@@ -212,37 +231,39 @@
     partforum_print_mode_form($discussion->id, $displaymode);
     echo "</div>";
 
-    if ($forum->type != 'single'
+    if ($partforum->type != 'single'
                 && has_capability('mod/partforum:movediscussions', $modcontext)) {
 
         echo '<div class="discussioncontrol movediscussion">';
-        // Popup menu to move discussions to other forums. The discussion in a
-        // single discussion forum can't be moved.
+        // Popup menu to move discussions to other partforums. The discussion in a
+        // single discussion partforum can't be moved.
         $modinfo = get_fast_modinfo($course);
         if (isset($modinfo->instances['partforum'])) {
-            $forummenu = array();
-            $sections = get_all_sections($course->id);
-            foreach ($modinfo->instances['partforum'] as $forumcm) {
-                if (!$forumcm->uservisible || !has_capability('mod/partforum:startdiscussion',
-                    get_context_instance(CONTEXT_MODULE,$forumcm->id))) {
+            $partforummenu = array();
+			
+             $sections = $modinfo->get_section_info_all(); // new function
+            //$sections = get_all_sections($course->id); deprecated function
+            foreach ($modinfo->instances['partforum'] as $partforumcm) {
+                if (!$partforumcm->uservisible || !has_capability('mod/partforum:startdiscussion',
+                    context_module::instance($partforumcm->id))) {
                     continue;
                 }
 
-                $section = $forumcm->sectionnum;
+                $section = $partforumcm->sectionnum;
                 $sectionname = get_section_name($course, $sections[$section]);
-                if (empty($forummenu[$section])) {
-                    $forummenu[$section] = array($sectionname => array());
+                if (empty($partforummenu[$section])) {
+                    $partforummenu[$section] = array($sectionname => array());
                 }
-                if ($forumcm->instance != $forum->id) {
-                    $url = "/mod/partforum/discuss.php?d=$discussion->id&move=$forumcm->instance&sesskey=".sesskey();
-                    $forummenu[$section][$sectionname][$url] = format_string($forumcm->name);
+                if ($partforumcm->instance != $partforum->id) {
+                    $url = "/mod/partforum/discuss.php?d=$discussion->id&move=$partforumcm->instance&sesskey=".sesskey();
+                    $partforummenu[$section][$sectionname][$url] = format_string($partforumcm->name);
                 }
             }
-            if (!empty($forummenu)) {
+            if (!empty($partforummenu)) {
                 echo '<div class="movediscussionoption">';
-                $select = new url_select($forummenu, '',
+                $select = new url_select($partforummenu, '',
                         array(''=>get_string("movethisdiscussionto", "partforum")),
-                        'forummenu', get_string('move'));
+                        'partforummenu', get_string('move'));
                 echo $OUTPUT->render($select);
                 echo "</div>";
             }
@@ -252,24 +273,36 @@
     echo '<div class="clearfloat">&nbsp;</div>';
     echo "</div>";
 
-    if (!empty($forum->blockafter) && !empty($forum->blockperiod)) {
+    if (!empty($partforum->blockafter) && !empty($partforum->blockperiod)) {
         $a = new stdClass();
-        $a->blockafter  = $forum->blockafter;
-        $a->blockperiod = get_string('secondstotime'.$forum->blockperiod);
-        echo $OUTPUT->notification(get_string('thisforumisthrottled','partforum',$a));
+        $a->blockafter  = $partforum->blockafter;
+        $a->blockperiod = get_string('secondstotime'.$partforum->blockperiod);
+        echo $OUTPUT->notification(get_string('thispartforumisthrottled','partforum',$a));
     }
 
-    if ($forum->type == 'qanda' && !has_capability('mod/partforum:viewqandawithoutposting', $modcontext) &&
-                !partforum_user_has_posted($forum->id,$discussion->id,$USER->id)) {
+    if ($partforum->type == 'qanda' && !has_capability('mod/partforum:viewqandawithoutposting', $modcontext) &&
+                !partforum_user_has_posted($partforum->id,$discussion->id,$USER->id)) {
         echo $OUTPUT->notification(get_string('qandanotify','partforum'));
     }
 
     if ($move == -1 and confirm_sesskey()) {
-        echo $OUTPUT->notification(get_string('discussionmoved', 'partforum', format_string($forum->name,true)));
+        echo $OUTPUT->notification(get_string('discussionmoved', 'partforum', format_string($partforum->name,true)));
     }
 
     $canrate = has_capability('mod/partforum:rate', $modcontext);
-    partforum_print_discussion($course, $cm, $forum, $discussion, $post, $displaymode, $canreply, $canrate);
+	
+	//-------- based on settings making visible of participation instruction
+    $PAGE->requires->js('/mod/partforum/js/partforum_custom.js');
+	
+	
+	if(isset($CFG->partforum_enablepopup))
+	$enablepopup=$CFG->partforum_enablepopup;
+	else
+	$enablepopup=0;
+
+    $PAGE->requires->js_function_call('partforum_instruction_visibility', array($enablepopup));
+	//------------------------------------------------------------------------------------
+    partforum_print_discussion($course, $cm, $partforum, $discussion, $post, $displaymode, $canreply, $canrate);
 
     echo $OUTPUT->footer();
 
