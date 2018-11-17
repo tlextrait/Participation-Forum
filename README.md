@@ -7,6 +7,8 @@
 The Participation Forum is a Moodle module developed in 2011 by [Thomas Lextrait](http://tlextrait.com) / [Lychee Apps](http://lycheeapps.com), and [Brant Knutzen](http://brant.knutzen.se/).
 Testing and further development plans are underway at the University of Hong Kong.
 
+This project is open-source and maintained by the community. Your contributions are welcome. To contribute, fork this repository.
+
 ## Requirements
 
 * Moodle 2.4+
