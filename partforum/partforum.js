@@ -6,6 +6,7 @@ changeForumType();
 */
 
 function changeForumType(){
+	
 	// Get the partforum type
 	var partforumtype = document.getElementById("id_type");
 	var selected = partforumtype.options[partforumtype.selectedIndex].value;
@@ -35,19 +36,23 @@ function changeForumType(){
 	var groupmode = document.getElementById("id_groupmode");
 	var groupvisible = document.getElementById("id_visible");
 	
-	if(selected=="participation"){
+	if (selected=="participation") {
+
 		// Hide and select Aggregate Type
 		aggrtype.selectedIndex = 1;
 		aggrtype.parentNode.parentNode.style.display = "none";
+
 		// Hide and select Scale
 		scale.removeAttribute('disabled');
 		scale.selectedIndex = scale.options.length-10;
 		scale.parentNode.parentNode.style.display = "none";
+
 		// Hide and check time restriction
 		restrict.removeAttribute('disabled');
 		restrict.setAttribute('checked','checked');
 		restrict.value = '1';
 		restrict.parentNode.parentNode.parentNode.style.display = "none";
+
 		// Enable to/from
 		to_day.removeAttribute('disabled');
 		to_month.removeAttribute('disabled');
@@ -59,9 +64,11 @@ function changeForumType(){
 		fr_year.removeAttribute('disabled');
 		fr_hour.removeAttribute('disabled');
 		fr_min.removeAttribute('disabled');
+
 		// Hide group mode
 		groupmode.selectedIndex = 0;
 		groupmode.parentNode.parentNode.parentNode.parentNode.style.display = "none";
+
 		// Change the date only if we are not in the settings panel
 		if(!settingsPanel){
 			// Set the assessment end date
@@ -76,7 +83,8 @@ function changeForumType(){
 		     	}
 		   	}
 	   	}
-	}else{
+
+	} else {
 		restrict.removeAttribute('checked');
 		restrict.parentNode.parentNode.parentNode.style.display = "";
 		aggrtype.parentNode.parentNode.style.display = "";
