@@ -38,16 +38,23 @@ The “Add a new group post” button creates “semi-private” areas for discu
 
 ## Installation
 
-1. Go to your main Moodle directory.
-2. Open the `/mod` directory.
-3. Paste the `partforum` folder there.
-4. Navigate to Moodle in your web browser and follow the steps for installating the plugin.
+1.Installing via uploaded ZIP file
 
-## Updating
+    a.Login to your Moodle site as an admin and go to Administration > Site administration > Plugins > Install plugins.
+    b.Upload the ZIP file, select the Activity module(mod) plugin type, tick the acknowledgement checkbox, then click the button 'Install plugin from the ZIP file'.
+    c.Check that you obtain a 'Validation passed!' message, then click the button 'Install plugin'.
 
-1. Go to your main Moodle directory.
-2. Open the `/mod` directory.
-3. Replace the old `partforum` folder with the new one (note you will not lose any data).
+2.Installing manually at the server
+
+    First, establish the correct place in the Moodle code tree for the plugin type. Common locations are:
+    /path/to/moodle/mod/ - activity modules and resources
+    
+    See dev:Plugins for the full list of all plugin types and their locations within the Moodle tree.
+  
+    a.Upload or copy it to your Moodle instance.
+    b.Unzip it in the right place for the plugin type (or follow the plugin instructions).
+    c.In your Moodle site (as admin) go to Settings > Site administration > Notifications (you should, for most plugin types, get a message saying the plugin is installed).
+    Note: The plugin may contain language files. They'll be found by your Moodle automatically. These language strings can be customized using the standard Settings > Site administration > Language editing interface. If you get a "Database error" when you try to edit your language files, there is a strong chance that the language files included within the downloaded ZIP file of this plugin have a coding problem. If you delete the plugin_name/lang/other_language_different_to_English/ folder with the new language strings and the database error disappears, this is indeed the case. Please notify the plugin maintainer, so that it can be fixed in future releases.
 
 ## Tutorials
 
