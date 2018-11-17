@@ -29,3 +29,7 @@ This project is open-source and maintained by the community. Your contributions 
 1. Go to your main Moodle directory.
 2. Open the `/mod` directory.
 3. Replace the old `partforum` folder with the new one (note you will not lose any data).
+
+## Tutorials
+
+[YouTube Tutorial Videos](https://www.youtube.com/playlist?list=PLU9j5H0P1sx9YoXgfZiNamrLvL8HfuIfy) by Brant Knutzen.
