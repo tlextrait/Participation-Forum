@@ -1,5 +1,7 @@
 # Participation Forum
 
+![Participation Forum Logo](http://pf.bushgrapher.org/images/logo.jpg)
+
 [http://participationforum.org](http://participationforum.org)
 
 ## About
