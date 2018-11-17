@@ -45,10 +45,11 @@ The “Add a new group post” button creates “semi-private” areas for discu
 
 ## Installation
 
-### Installing via uploaded ZIP file
+### Installing via uploaded zip file
 
 1. Login to your Moodle site as an admin and go to *Administration > Site administration > Plugins > Install plugins*.
-2. Upload the ZIP file, select the `Activity module (mod)` plugin type, tick the acknowledgement checkbox, then click the button 'Install plugin from the ZIP file'.
+2. Compress the `partforum` folder into a zip file.
+2. Upload the zip file, select the `Activity module (mod)` plugin type, tick the acknowledgement checkbox, then click the button 'Install plugin from the ZIP file'.
 3. Check that you obtain a 'Validation passed!' message, then click the button 'Install plugin'.
 
 ### Installing manually at the server
