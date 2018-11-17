@@ -1,4 +1,4 @@
-# Participation Forum
+# Participation Forum - Moodle Plugin
 
 ![Participation Forum Logo](http://pf.bushgrapher.org/images/logo.jpg)
 
