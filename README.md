@@ -18,13 +18,17 @@ This project is open-source and maintained by the community. Your contributions 
 
 ## Requirements
 
-* Moodle 2.4 - 3.0
+* Moodle 2.7 - 3.0
 
 **Support for Moodle 3.1 and higher is coming soon.**
 
 ## Legacy Moodle Support
 
-*For Moodle 2.0 to 2.3 support, please download [version 1.3 here, which is no longer being supported or worked on](http://pf.bushgrapher.org/downloads/PartForum_1.3.0.zip)*.
+### Moodle 2.4 to 2.7
+Use [version 1.4](https://github.com/tlextrait/Participation-Forum/releases/tag/1.4).
+
+### Moodle 2.0 to 2.3
+For Moodle 2.0 to 2.3 support, please download [version 1.3 here, which is no longer being supported or worked on](http://pf.bushgrapher.org/downloads/PartForum_1.3.0.zip).
 
 ## Features
 
